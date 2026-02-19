@@ -1,24 +1,19 @@
-# Grocy Product Helper - EN Guide
+# ProductHelper - EN
 
-## Goal
+## Dependency
 
-This repo contains only Grocy product helper features:
-- barcode assistant
-- OFF/OPF robots
-- product photo helpers
-- product form helpers
+Install NerdCore first:
+- https://github.com/Raph563/NerdCore
 
 ## Install
 
 Windows:
-
 ```powershell
 cd addon\scripts
 .\install.ps1 -GrocyConfigPath "C:\path\to\grocy\config"
 ```
 
 Linux/macOS:
-
 ```bash
 cd addon/scripts
 ./install.sh /path/to/grocy/config
@@ -27,38 +22,26 @@ cd addon/scripts
 ## Update
 
 Windows:
-
 ```powershell
 cd addon\scripts
 .\update-from-github.ps1 -GrocyConfigPath "C:\path\to\grocy\config"
 ```
 
 Linux/macOS:
-
 ```bash
 cd addon/scripts
 ./update-from-github.sh --config /path/to/grocy/config
 ```
 
-## Docker
+## Runtime files
 
-See `addon/docker-sidecar/docker-compose.example.yml`.
-
-## Local state
-
-State file:
-- `config/data/grocy-product-helper-state.json`
-
-Payload files:
 - `config/data/custom_js_product_helper.html`
-- `config/data/custom_js_nerdstats.html` (when core addon is installed)
+- `config/data/producthelper-addon-state.json`
+- `config/data/custom_js.html` (composed active file)
 
-Composed active file:
-- `config/data/custom_js.html`
+## Related
 
-Install/update scripts now compose the active file automatically so both addons can run independently or together.
+- Core: https://github.com/Raph563/NerdCore
+- Stats: https://github.com/Raph563/StatNerd
 
-## Split note
 
-Stats/charts dashboard is maintained in:
-- https://github.com/Raph563/Grocy

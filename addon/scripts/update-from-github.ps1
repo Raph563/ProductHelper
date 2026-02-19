@@ -1,5 +1,5 @@
 param(
-	[string]$Repository = 'Raph563/Grocy_Product_Helper',
+	[string]$Repository = 'Raph563/ProductHelper',
 	[string]$ReleaseTag = '',
 	[string]$GrocyConfigPath = '',
 	[switch]$NoBackup,
@@ -266,21 +266,28 @@ $grocyConfigResolved = Resolve-GrocyConfigPath -ConfigPathInput $GrocyConfigPath
 $dataDir = Join-Path $grocyConfigResolved 'data'
 $payloadFileName = if ($env:ADDON_PAYLOAD_FILENAME) { $env:ADDON_PAYLOAD_FILENAME } else { 'custom_js_product_helper.html' }
 $activeFileName = if ($env:ACTIVE_TARGET_FILENAME) { $env:ACTIVE_TARGET_FILENAME } else { 'custom_js.html' }
-$composeSourcesRaw = if ($env:COMPOSE_SOURCES) { $env:COMPOSE_SOURCES } else { 'custom_js_nerdstats.html,custom_js_product_helper.html' }
+$composeSourcesRaw = if ($env:COMPOSE_SOURCES) { $env:COMPOSE_SOURCES } else { 'custom_js_nerdcore.html,custom_js_nerdstats.html,custom_js_product_helper.html' }
 $composeEnabled = if ($env:COMPOSE_ENABLED) { $env:COMPOSE_ENABLED } else { '1' }
+$nerdCoreFileName = if ($env:NERDCORE_FILENAME) { $env:NERDCORE_FILENAME } else { 'custom_js_nerdcore.html' }
 $targetFile = Join-Path $dataDir $payloadFileName
 $activeFile = Join-Path $dataDir $activeFileName
-$stateFile = Join-Path $dataDir 'grocy-product-helper-state.json'
+$stateFile = Join-Path $dataDir 'producthelper-addon-state.json'
+$nerdCoreFile = Join-Path $dataDir $nerdCoreFileName
 
 if (-not (Test-Path $dataDir))
 {
 	New-Item -ItemType Directory -Path $dataDir -Force | Out-Null
 }
 
+if (-not (Test-Path $nerdCoreFile))
+{
+	throw "NerdCore requis. Fichier manquant: $nerdCoreFile"
+}
+
 $repo = Resolve-RepositoryParts -RepositoryValue $Repository
 $apiBase = "https://api.github.com/repos/$($repo.Owner)/$($repo.Name)"
 
-$tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("grocy-product-helper-update-{0}" -f ([Guid]::NewGuid().ToString('N')))
+$tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("grocy-addon-update-{0}" -f ([Guid]::NewGuid().ToString('N')))
 New-Item -ItemType Directory -Path $tempRoot | Out-Null
 
 try
@@ -302,7 +309,7 @@ try
 	}
 
 	$assets = @($release.assets)
-	$asset = $assets | Where-Object { $_.name -match '^grocy-product-helper-addon-v.+\.zip$' } | Select-Object -First 1
+	$asset = $assets | Where-Object { $_.name -match '^producthelper-addon-v.+\.zip$' } | Select-Object -First 1
 	if (-not $asset)
 	{
 		$asset = $assets | Where-Object { $_.name -match '\.zip$' } | Select-Object -First 1
@@ -345,7 +352,7 @@ try
 	}
 
 	Copy-Item $addonFile $targetFile -Force
-	if (-not (Compose-CustomJs -DataDir $dataDir -ComposeSourcesRaw $composeSourcesRaw -ActiveTargetFile $activeFile -ComposeEnabled $composeEnabled -SourceLabel 'Grocy_Product_Helper'))
+	if (-not (Compose-CustomJs -DataDir $dataDir -ComposeSourcesRaw $composeSourcesRaw -ActiveTargetFile $activeFile -ComposeEnabled $composeEnabled -SourceLabel 'ProductHelper'))
 	{
 		Copy-Item $targetFile $activeFile -Force
 	}
@@ -373,4 +380,5 @@ finally
 {
 	Remove-Item $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
 }
+
 

@@ -1,117 +1,80 @@
-# Grocy Product Helper
+# ProductHelper
 
-Grocy Product Helper is a dedicated Grocy addon focused on product workflows:
+ProductHelper is the Grocy addon for product workflows:
 - OFF/OPF barcode lookup
-- barcode robot (auto create in Grocy)
+- barcode robot flow
 - product photo search/import
-- product-form helpers and status terminal
+- product-form helpers
 
-This repository is the product-tools split from the Stats/Charts line.
-The analytics dashboard remains in: https://github.com/Raph563/Grocy
+## Dependency
 
-## What You Get
+`NerdCore` is mandatory:
+- https://github.com/Raph563/NerdCore
 
-- Addon payload: `addon/dist/custom_js.html`
-- Install/update scripts (Windows + Linux/macOS)
-- Docker sidecar installer
-- GitHub release workflow (stable + alpha)
-- Ready-to-run VPS update command path
+If `NerdCore` is not installed, ProductHelper install/update scripts fail by design and runtime is disabled.
 
-## Co-Install Support
+## Runtime files
 
-This addon now installs to its own payload file and composes `custom_js.html` with NerdStats automatically.
-
-- NerdStats payload: `config/data/custom_js_nerdstats.html`
-- Product Helper payload: `config/data/custom_js_product_helper.html`
+- Payload: `config/data/custom_js_product_helper.html`
+- State: `config/data/producthelper-addon-state.json`
 - Active composed file: `config/data/custom_js.html`
 
-So users can install NerdStats only, Product Helper only, or both on the same Grocy instance.
+Default compose order:
+- `custom_js_nerdcore.html`
+- `custom_js_nerdstats.html`
+- `custom_js_product_helper.html`
 
-## Architecture
+## Install
 
-![Architecture](docs/images/architecture.svg)
-
-## Quick Start
-
-### Local install (Windows)
-
+Windows:
 ```powershell
 cd addon\scripts
 .\install.ps1 -GrocyConfigPath "C:\path\to\grocy\config"
 ```
 
-### Local install (Linux/macOS)
-
+Linux/macOS:
 ```bash
 cd addon/scripts
 ./install.sh /path/to/grocy/config
 ```
 
-### Update from GitHub release
+## Update
 
 Windows:
-
 ```powershell
 cd addon\scripts
 .\update-from-github.ps1 -GrocyConfigPath "C:\path\to\grocy\config"
 ```
 
 Linux/macOS:
-
 ```bash
 cd addon/scripts
 ./update-from-github.sh --config /path/to/grocy/config
 ```
 
-## Docker Sidecar
-
-Use the included sidecar to inject `custom_js.html` into Grocy config:
+## Docker sidecar
 
 ```bash
 cd addon/docker-sidecar
 docker compose -f docker-compose.example.yml up --build
 ```
 
-The sidecar writes state to:
-- `config/data/grocy-product-helper-state.json`
-- payload file: `config/data/custom_js_product_helper.html`
-- composed active file: `config/data/custom_js.html`
+## Release assets
 
-## VPS Pattern (Contabo/Ubuntu)
+- Stable tag: `vX.Y.Z`
+- Prerelease tag: `vX.Y.Z-alpha.N` / `vX.Y.Z-beta.N`
+- ZIP asset: `producthelper-addon-vX.Y.Z.zip`
 
-1. Pull latest release in your repo path.
-2. Run update script in container/startup pipeline.
-3. Restart Grocy container if needed.
+## Related repos
 
-Example updater service can use:
-
-```bash
-cd /opt/grocy/services/nerdstats
-# adapt to your helper service path
-```
-
-## Release Artifacts
-
-Tag format:
-- stable: `vX.Y.Z`
-- prerelease: `vX.Y.Z-alpha.N`, `vX.Y.Z-beta.N`
-
-Expected zip asset name:
-- `grocy-product-helper-addon-vX.Y.Z.zip`
-
-## Repository Split
-
-- `Grocy` repo: stats/charts core
-- `Grocy_Product_Helper` repo: product workflow tools
-
-If both addons are installed, composition is automatic through the install/update scripts.
+- Core dependency: https://github.com/Raph563/NerdCore
+- Stats addon: https://github.com/Raph563/StatNerd
 
 ## Documentation
 
-- FR: `docs/README.fr.md`
-- EN: `docs/README.en.md`
-- Addon pack docs: `addon/README.fr.md`, `addon/README.en.md`
+- `docs/README.fr.md`
+- `docs/README.en.md`
+- `addon/README.fr.md`
+- `addon/README.en.md`
 
-## License
 
-Project follows the same license policy as the main Grocy addon line in your GitHub org.

@@ -1,6 +1,7 @@
 # Grocy Product Helper - Addon Pack (EN)
 
 Dedicated addon pack for Grocy product helper features.
+Requires NerdCore before install.
 
 ## Contents
 
@@ -12,7 +13,7 @@ Dedicated addon pack for Grocy product helper features.
 
 ## Local state
 
-- `config/data/grocy-product-helper-state.json`
+- `config/data/producthelper-addon-state.json`
 - `config/data/custom_js_product_helper.html`
 - `config/data/custom_js.html` (composed active file)
 
@@ -29,3 +30,5 @@ cd addon\scripts
 cd addon\scripts
 .\update-from-github.ps1 -GrocyConfigPath "C:\path\to\grocy\config"
 ```
+
+

@@ -2,6 +2,16 @@
 (() => {
   'use strict';
 
+  const NERDCORE = window.NerdCore || null;
+  if (!NERDCORE || typeof NERDCORE.registerAddon !== 'function') {
+    console.warn('[ProductHelper] NerdCore is required. Install NerdCore first.');
+    return;
+  }
+  NERDCORE.registerAddon({ id: 'producthelper', name: 'ProductHelper', version: '2.0.0' });
+  const NERDCORE_DISABLE_LEGACY_SETTINGS = typeof NERDCORE.isLegacySettingsDisabled === 'function'
+    ? !!NERDCORE.isLegacySettingsDisabled()
+    : true;
+
   const S = {
     active: 'all',
     applying: false,
@@ -720,16 +730,16 @@
   const USER_DATA_TRANSFER_SCHEMA = 'statnerd-user-data';
   const USER_DATA_TRANSFER_SCHEMA_VERSION = 1;
   const USER_DATA_TRANSFER_STORAGE_PREFIX = 'grocy_dash_';
-  const ADDON_RUNTIME_VERSION = '1.2.1';
-  const ADDON_UPDATE_DEFAULT_REPOSITORY = 'Raph563/Grocy_Product_Helper';
+  const ADDON_RUNTIME_VERSION = '2.0.0';
+  const ADDON_UPDATE_DEFAULT_REPOSITORY = 'Raph563/ProductHelper';
   const ADDON_UPDATE_DEFAULT_LOCAL_ROOT = 'C:\\Users\\Admin\\Documents\\Docker\\grocy';
   const ADDON_UPDATE_RELAY_BASE_URL = 'http://127.0.0.1:17863';
   const ADDON_UPDATE_PRERELEASE_VISIBLE_LIMIT = 5;
   const NO_DUE_SENTINEL_DATE = '2999-12-31';
   const STATNERD_AUTHOR_NAME = 'Raph563';
-  const STATNERD_REPO_URL = 'https://github.com/Raph563/Grocy_Product_Helper';
-  const STATNERD_CHANGELOG_URL = `${STATNERD_REPO_URL}/blob/main/CHANGELOG.md`;
-  const STATNERD_DOCS_URL = `${STATNERD_REPO_URL}/tree/main/docs`;
+  const PRODUCTHELPER_REPO_URL = 'https://github.com/Raph563/ProductHelper';
+  const STATNERD_CHANGELOG_URL = `${PRODUCTHELPER_REPO_URL}/blob/main/CHANGELOG.md`;
+  const STATNERD_DOCS_URL = `${PRODUCTHELPER_REPO_URL}/tree/main/docs`;
   const BARCODE_LOOKUP_PROVIDER_IDS = ['openfoodfacts', 'openproductsfacts'];
   const PHOTO_SEARCH_ENGINE_IDS = ['google', 'duckduckgo', 'bing'];
   const BRAND_LOGO_SOURCES = [
@@ -1517,7 +1527,7 @@
       settings_section_addon_update: 'Mise à jour addon',
       addon_update_desc: 'Vérifie la dernière release GitHub et prépare les commandes de mise à jour locale.',
       addon_update_repo_label: 'Dépôt GitHub (owner/repo)',
-      addon_update_repo_hint: 'Ex: Raph563/Grocy. Le script cible ../config par défaut (Documents/Docker/grocy/config).',
+      addon_update_repo_hint: 'Ex: Raph563/ProductHelper. Le script cible ../config par défaut (Documents/Docker/grocy/config).',
       addon_update_check_btn: 'Vérifier la version',
       addon_update_open_release_btn: 'Ouvrir la release',
       addon_update_open_release_tag: 'Release {{tag}}',
@@ -2180,7 +2190,7 @@
       settings_section_addon_update: 'Addon update',
       addon_update_desc: 'Checks latest GitHub release and prepares local update commands.',
       addon_update_repo_label: 'GitHub repository (owner/repo)',
-      addon_update_repo_hint: 'Example: Raph563/Grocy. Script targets ../config by default.',
+      addon_update_repo_hint: 'Example: Raph563/ProductHelper. Script targets ../config by default.',
       addon_update_check_btn: 'Check version',
       addon_update_open_release_btn: 'Open release',
       addon_update_open_release_tag: 'Release {{tag}}',
@@ -8321,7 +8331,7 @@
   function addonUpdatePickReleaseAsset(assetsInput = null) {
     const assets = Array.isArray(assetsInput) ? assetsInput : [];
     if (!assets.length) return null;
-    return assets.find((asset) => /^grocy-addon-v.+\.zip$/i.test(clean(asset?.name || '')))
+    return assets.find((asset) => /^producthelper-addon-v.+\.zip$/i.test(clean(asset?.name || '')))
       || assets.find((asset) => /\.zip$/i.test(clean(asset?.name || '')))
       || null;
   }
@@ -8426,15 +8436,15 @@
 
   function addonUpdateCandidateStateFileUrls() {
     const pathname = clean(window.location && window.location.pathname ? window.location.pathname : '');
-    const baseCandidates = ['data/grocy-addon-state.json', '/data/grocy-addon-state.json', 'grocy-addon-state.json'];
+    const baseCandidates = ['data/producthelper-addon-state.json', '/data/producthelper-addon-state.json', 'producthelper-addon-state.json'];
     const apiCandidates = [];
     try {
       if (typeof U === 'function') {
         const fromGroup = clean(U('/api/files/data/') || '');
         if (fromGroup) {
-          apiCandidates.push(`${fromGroup}${encodeURIComponent('grocy-addon-state.json')}`);
+          apiCandidates.push(`${fromGroup}${encodeURIComponent('producthelper-addon-state.json')}`);
         }
-        const fromFull = clean(U('/api/files/data/grocy-addon-state.json') || '');
+        const fromFull = clean(U('/api/files/data/producthelper-addon-state.json') || '');
         if (fromFull) {
           apiCandidates.push(fromFull);
         }
@@ -8442,14 +8452,14 @@
     } catch (_err) {
       // Ignore URL helper issues and use plain candidates.
     }
-    apiCandidates.push('/api/files/data/grocy-addon-state.json');
-    apiCandidates.push('/api/files/data/' + encodeURIComponent('grocy-addon-state.json'));
+    apiCandidates.push('/api/files/data/producthelper-addon-state.json');
+    apiCandidates.push('/api/files/data/' + encodeURIComponent('producthelper-addon-state.json'));
     if (!pathname) return Array.from(new Set([...apiCandidates, ...baseCandidates]));
     const basePath = pathname.replace(/\/[^/]*$/, '/');
     return Array.from(new Set([
       ...apiCandidates,
-      `${basePath}data/grocy-addon-state.json`,
-      `${basePath}grocy-addon-state.json`,
+      `${basePath}data/producthelper-addon-state.json`,
+      `${basePath}producthelper-addon-state.json`,
       ...baseCandidates,
     ]));
   }
@@ -12416,7 +12426,7 @@
       <div class="form-row align-items-end">
         <div class="form-group col-md-7 mb-2">
           <label for="dash_addon_update_repo" class="mb-1">${t('addon_update_repo_label')}</label>
-          <input id="dash_addon_update_repo" type="text" class="form-control form-control-sm" placeholder="Raph563/Grocy">
+          <input id="dash_addon_update_repo" type="text" class="form-control form-control-sm" placeholder="Raph563/ProductHelper">
           <div class="small text-muted mt-1">${t('addon_update_repo_hint')}</div>
         </div>
         <div class="form-group col-md-5 mb-2 d-flex flex-wrap justify-content-md-end align-items-end">
@@ -12567,7 +12577,7 @@
       <div>${escapeHtml(t('statnerd_about_author', { author: STATNERD_AUTHOR_NAME }))}</div>
       <div id="dash_statnerd_about_version_line">${escapeHtml(t('statnerd_about_version', { version: addonUpdateLocalVersionValue() }))}</div>
       <div class="mt-1 d-flex flex-wrap">
-        <a class="mr-2" href="${escapeHtml(STATNERD_REPO_URL + '/releases')}" target="_blank" rel="noopener noreferrer">${escapeHtml(t('statnerd_about_release_link'))}</a>
+        <a class="mr-2" href="${escapeHtml(PRODUCTHELPER_REPO_URL + '/releases')}" target="_blank" rel="noopener noreferrer">${escapeHtml(t('statnerd_about_release_link'))}</a>
         <a class="mr-2" href="${escapeHtml(STATNERD_CHANGELOG_URL)}" target="_blank" rel="noopener noreferrer">${escapeHtml(t('statnerd_about_changelog_link'))}</a>
         <a href="${escapeHtml(STATNERD_DOCS_URL)}" target="_blank" rel="noopener noreferrer">${escapeHtml(t('statnerd_about_docs_link'))}</a>
       </div>
@@ -12810,6 +12820,7 @@
   }
 
   function initAiSettingsOverlay() {
+    if (NERDCORE_DISABLE_LEGACY_SETTINGS) return;
     if (document.getElementById('dash_ai_settings_overlay')) return;
     const overlay = document.createElement('div');
     overlay.id = 'dash_ai_settings_overlay';
@@ -13565,7 +13576,11 @@
   }
 
   function openAiSettingsOverlay() {
-    initAiSettingsOverlay();
+    if (NERDCORE_DISABLE_LEGACY_SETTINGS && NERDCORE && typeof NERDCORE.openSettingsPage === 'function') {
+      NERDCORE.openSettingsPage();
+      return;
+    }
+    if (!NERDCORE_DISABLE_LEGACY_SETTINGS) initAiSettingsOverlay();
     fillAiSettingsForm();
     syncAiSettingsButton();
     const overlay = document.getElementById('dash_ai_settings_overlay');
@@ -28878,4 +28893,8 @@
   else init();
 })();
 </script>
+
+
+
+
 
