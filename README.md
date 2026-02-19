@@ -19,6 +19,10 @@ If `NerdCore` is not installed, ProductHelper install/update scripts fail by des
 - State: `config/data/producthelper-addon-state.json`
 - Active composed file: `config/data/custom_js.html`
 
+## Settings page
+- Dedicated Grocy page: `/stocksettings?producthelper=1`
+- Menu entry is injected by NerdCore.
+
 Default compose order:
 - `custom_js_nerdcore.html`
 - `custom_js_nerdstats.html`

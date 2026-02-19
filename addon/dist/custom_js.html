@@ -7,7 +7,14 @@
     console.warn('[ProductHelper] NerdCore is required. Install NerdCore first.');
     return;
   }
-  NERDCORE.registerAddon({ id: 'producthelper', name: 'ProductHelper', version: '2.0.0' });
+  NERDCORE.registerAddon({
+    id: 'producthelper',
+    name: 'ProductHelper',
+    version: '2.1.0',
+    settingsSection: 'producthelper',
+    settingsTitle: 'ProductHelper',
+    settingsIcon: 'fa-box-open',
+  });
   const NERDCORE_DISABLE_LEGACY_SETTINGS = typeof NERDCORE.isLegacySettingsDisabled === 'function'
     ? !!NERDCORE.isLegacySettingsDisabled()
     : true;
@@ -730,10 +737,12 @@
   const USER_DATA_TRANSFER_SCHEMA = 'statnerd-user-data';
   const USER_DATA_TRANSFER_SCHEMA_VERSION = 1;
   const USER_DATA_TRANSFER_STORAGE_PREFIX = 'grocy_dash_';
-  const ADDON_RUNTIME_VERSION = '2.0.0';
+  const ADDON_RUNTIME_VERSION = '2.1.0';
   const ADDON_UPDATE_DEFAULT_REPOSITORY = 'Raph563/ProductHelper';
   const ADDON_UPDATE_DEFAULT_LOCAL_ROOT = 'C:\\Users\\Admin\\Documents\\Docker\\grocy';
-  const ADDON_UPDATE_RELAY_BASE_URL = 'http://127.0.0.1:17863';
+  const ADDON_UPDATE_RELAY_BASE_URL = (NERDCORE && typeof NERDCORE.getUpdateApiBase === 'function')
+    ? NERDCORE.getUpdateApiBase()
+    : `${window.location.protocol}//${window.location.host}/__nerdcore_update`;
   const ADDON_UPDATE_PRERELEASE_VISIBLE_LIMIT = 5;
   const NO_DUE_SENTINEL_DATE = '2999-12-31';
   const STATNERD_AUTHOR_NAME = 'Raph563';
@@ -1471,7 +1480,7 @@
       overlay_focus_ai_settings_btn: 'Paramètres IA',
       overlay_focus_bucket_see_more: 'Voir plus',
       overlay_focus_bucket_show_more: 'Afficher plus',
-      ai_settings_title: 'Paramètres StatNerd',
+      ai_settings_title: 'Paramètres ProductHelper',
       ai_settings_close: 'Fermer',
       ai_enable_focus: 'Activer l’agent IA sur le focus plein écran',
       ai_provider_active: 'Fournisseur actif',
@@ -1980,7 +1989,7 @@
       settings_group_visuals: 'Visuels',
       settings_group_compat: 'Compatibilité',
       settings_group_providers: 'Fournisseurs IA',
-      settings_group_update: 'Mise à jour et infos StatNerd',
+      settings_group_update: 'Mise à jour et infos ProductHelper',
       settings_group_expand: '(ouvrir)',
       settings_group_reduce: '(réduire)',
       statnerd_about_author: 'Auteur: {{author}}',
@@ -1988,7 +1997,7 @@
       statnerd_about_docs_link: 'Documentation',
       statnerd_about_release_link: 'Releases GitHub',
       statnerd_about_selected_changelog: 'Changelog de la version sélectionnée',
-      statnerd_about_title: 'Infos StatNerd',
+      statnerd_about_title: 'Infos ProductHelper',
       statnerd_about_version: 'Version locale installée: {{version}}',
       due_over_by_span: 'dépassé de {{span}}',
       due_in_span: 'dans {{span}}',
@@ -2134,7 +2143,7 @@
       overlay_focus_ai_settings_btn: 'AI settings',
       overlay_focus_bucket_see_more: 'See more',
       overlay_focus_bucket_show_more: 'Show more',
-      ai_settings_title: 'StatNerd settings',
+      ai_settings_title: 'ProductHelper settings',
       ai_settings_close: 'Close',
       ai_enable_focus: 'Enable AI agent on fullscreen focus',
       ai_provider_active: 'Active provider',
@@ -2643,7 +2652,7 @@
       settings_group_visuals: 'Visuals',
       settings_group_compat: 'Compatibility',
       settings_group_providers: 'AI providers',
-      settings_group_update: 'Updates and StatNerd info',
+      settings_group_update: 'Updates and ProductHelper info',
       settings_group_expand: '(open)',
       settings_group_reduce: '(collapse)',
       statnerd_about_author: 'Author: {{author}}',
@@ -2651,7 +2660,7 @@
       statnerd_about_docs_link: 'Documentation',
       statnerd_about_release_link: 'GitHub releases',
       statnerd_about_selected_changelog: 'Selected version changelog',
-      statnerd_about_title: 'StatNerd info',
+      statnerd_about_title: 'ProductHelper info',
       statnerd_about_version: 'Installed local version: {{version}}',
       due_over_by_span: 'overdue by {{span}}',
       due_in_span: 'in {{span}}',
@@ -7027,6 +7036,22 @@
       #dash_ai_settings_overlay .dash-ai-settings-card .card-body {
         overflow: auto;
       }
+      #dash_ai_settings_overlay.dash-ai-settings-inline {
+        display: block !important;
+        position: static;
+        inset: auto;
+        z-index: auto;
+        background: transparent;
+        padding: 0;
+      }
+      #dash_ai_settings_overlay.dash-ai-settings-inline .dash-ai-settings-card {
+        max-width: none;
+        max-height: none;
+        margin: 0;
+      }
+      #dash_ai_settings_overlay.dash-ai-settings-inline .dash-ai-settings-card .card-header {
+        border-bottom: 1px solid rgba(255,255,255,0.12);
+      }
       #dash_ai_settings_overlay .dash-settings-section {
         border: 1px solid rgba(255,255,255,0.14);
         border-radius: 0.62rem;
@@ -8223,9 +8248,22 @@
     return `${ADDON_UPDATE_RELAY_BASE_URL}/${path}`;
   }
 
+  function addonUpdateRelayHeaders() {
+    const token = (NERDCORE && typeof NERDCORE.getUpdateToken === 'function')
+      ? clean(NERDCORE.getUpdateToken() || '')
+      : '';
+    const headers = { Accept: 'application/json' };
+    if (token) headers['X-NerdCore-Token'] = token;
+    return headers;
+  }
+
   async function addonUpdateRelayHealthCheck() {
     try {
-      const response = await fetch(addonUpdateRelayUrl('health'), { method: 'GET', cache: 'no-store' });
+      const response = await fetch(addonUpdateRelayUrl('health'), {
+        method: 'GET',
+        cache: 'no-store',
+        headers: addonUpdateRelayHeaders(),
+      });
       if (!response || !response.ok) return false;
       const payload = await response.json().catch(() => null);
       if (!payload || payload.ok !== true) return false;
@@ -8268,8 +8306,8 @@
       const response = await fetch(addonUpdateRelayUrl('v1/update'), {
         method: 'POST',
         headers: {
+          ...addonUpdateRelayHeaders(),
           'Content-Type': 'application/json',
-          Accept: 'application/json',
         },
         body: JSON.stringify({
           repository: parts.repository,
@@ -12604,34 +12642,22 @@
   function donneSettingsGroupDefinitions() {
     return [
       {
-        id: 'general',
-        tabKey: 'settings_tabs_general',
-        titleKey: 'settings_group_general',
-        sectionIds: ['dash_settings_interface_section', 'dash_settings_runtime_section'],
-      },
-      {
         id: 'product_data',
         tabKey: 'settings_tabs_product_data',
         titleKey: 'settings_group_product_data',
         sectionIds: ['dash_photo_search_section', 'dash_barcode_lookup_section', 'dash_facts_api_test_section'],
       },
       {
-        id: 'visuals',
-        tabKey: 'settings_tabs_visuals',
-        titleKey: 'settings_group_visuals',
-        sectionIds: ['dash_settings_brand_logo_section', 'dash_settings_group_logo_section'],
+        id: 'providers',
+        tabKey: 'settings_tabs_providers',
+        titleKey: 'settings_group_providers',
+        sectionIds: ['dash_settings_providers_section'],
       },
       {
         id: 'compat',
         tabKey: 'settings_tabs_compat',
         titleKey: 'settings_group_compat',
         sectionIds: ['dash_addon_compat_section'],
-      },
-      {
-        id: 'providers',
-        tabKey: 'settings_tabs_providers',
-        titleKey: 'settings_group_providers',
-        sectionIds: ['dash_settings_providers_section'],
       },
       {
         id: 'updates',
@@ -12819,8 +12845,10 @@
     });
   }
 
-  function initAiSettingsOverlay() {
-    if (NERDCORE_DISABLE_LEGACY_SETTINGS) return;
+  function initAiSettingsOverlay(optionsInput = {}) {
+    const options = optionsInput && typeof optionsInput === 'object' ? optionsInput : {};
+    const force = options.force === true;
+    if (NERDCORE_DISABLE_LEGACY_SETTINGS && !force) return;
     if (document.getElementById('dash_ai_settings_overlay')) return;
     const overlay = document.createElement('div');
     overlay.id = 'dash_ai_settings_overlay';
@@ -13577,7 +13605,7 @@
 
   function openAiSettingsOverlay() {
     if (NERDCORE_DISABLE_LEGACY_SETTINGS && NERDCORE && typeof NERDCORE.openSettingsPage === 'function') {
-      NERDCORE.openSettingsPage();
+      NERDCORE.openSettingsPage('producthelper');
       return;
     }
     if (!NERDCORE_DISABLE_LEGACY_SETTINGS) initAiSettingsOverlay();
@@ -13585,6 +13613,44 @@
     syncAiSettingsButton();
     const overlay = document.getElementById('dash_ai_settings_overlay');
     if (overlay) overlay.classList.remove('d-none');
+  }
+
+  function isProductHelperSettingsPage() {
+    const view = clean(window.Grocy && window.Grocy.View ? window.Grocy.View : '').toLowerCase();
+    if (view !== 'stocksettings') return false;
+    const params = new URLSearchParams(window.location.search || '');
+    return params.get('producthelper') === '1';
+  }
+
+  function renderProductHelperSettingsPage() {
+    if (!isProductHelperSettingsPage()) return false;
+    const pageContent = document.getElementById('page-content');
+    if (!pageContent) return false;
+
+    pageContent.innerHTML = `
+      <div class="row">
+        <div class="col">
+          <h2 class="title">${escapeHtml(t('ai_settings_title'))}</h2>
+          <div class="small text-muted mb-2">${escapeHtml(t('settings_group_update'))}</div>
+        </div>
+      </div>
+      <hr class="my-2">
+      <div id="dash_producthelper_settings_page_host"></div>
+    `;
+
+    initAiSettingsOverlay({ force: true });
+    fillAiSettingsForm();
+    syncAiSettingsButton();
+    const overlay = document.getElementById('dash_ai_settings_overlay');
+    const host = document.getElementById('dash_producthelper_settings_page_host');
+    if (overlay && host) {
+      overlay.classList.remove('d-none');
+      overlay.classList.add('dash-ai-settings-inline');
+      host.appendChild(overlay);
+      const closeBtn = overlay.querySelector('#dash_ai_close');
+      if (closeBtn) closeBtn.classList.add('d-none');
+    }
+    return true;
   }
 
   function openProduct(productId) {
@@ -28880,10 +28946,18 @@
       }
     };
 
+    safeRun('loadAiSettings', () => loadAiSettings());
+    safeRun('loadAddonCompatibilityState', () => loadAddonCompatibilityState());
+    safeRun('loadAddonUpdateState', () => loadAddonUpdateState());
     safeRun('loadBarcodeLookupSettings', () => loadBarcodeLookupSettings());
     safeRun('loadBarcodeAutofillUiSettings', () => loadBarcodeAutofillUiSettings());
     safeRun('loadPhotoSearchSettings', () => loadPhotoSearchSettings());
     safeRun('loadPhotoSearchProgress', () => loadPhotoSearchProgress());
+
+    if (safeRun('renderProductHelperSettingsPage', () => renderProductHelperSettingsPage()) === true) {
+      return;
+    }
+
     safeRun('initProductStatusTerminal', () => initProductStatusTerminal());
     safeRun('initProductImageSearchButton', () => initProductImageSearchButton());
     safeRun('initProductOpenFoodFactsEnhancements', () => initProductOpenFoodFactsEnhancements());

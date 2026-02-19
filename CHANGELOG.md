@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.1.0] - 2026-02-19
+
+### Added
+- Native settings page rendering on `/stocksettings?producthelper=1`.
+- Addon registration metadata for NerdCore menu routing (`settingsSection`, `settingsTitle`, `settingsIcon`).
+
+### Changed
+- Runtime version bump to `2.1.0`.
+- Legacy relay URL now resolves from NerdCore VPS API base (`/__nerdcore_update`).
+- Settings labels renamed from StatNerd placeholders to ProductHelper labels.
+- Settings groups reduced to ProductHelper-specific sections (product data/providers/compat/updates).
+
 ## [2.0.0] - 2026-02-19
 
 ### Breaking
