@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.2.1] - 2026-02-19
+
+- Fixed shell compose permission handling so `config/data/custom_js.html` stays readable by Grocy runtime even when install/update/uninstall scripts are executed as `root` with restrictive umask.
+- Applied to:
+  - `addon/scripts/install.sh`
+  - `addon/scripts/uninstall.sh`
+  - `addon/scripts/update-from-github.sh`
+  - `addon/docker-sidecar/entrypoint.sh`
+
 ## [1.2.0] - 2026-02-19
 
 - GitHub install/update/uninstall flows now support co-install with `Raph563/Grocy`:
