@@ -1,5 +1,45 @@
 # Changelog
 
+## [4.0.0] - 2026-02-20
+
+### Added
+- Full parent/sub-brand data model in Grocy master data:
+  - new userentity `Liens_marques`,
+  - new userfields on `Liens_marques`: `Marque_parente`, `Sous_marque`, `Actif`.
+- New `Liens marques` entry injected in Grocy manage-data dropdown (native page).
+- Brand-link migration tooling:
+  - automatic first-run migration from existing `products -> Marque/Sous_marque`,
+  - manual rerun button in ProductHelper settings page.
+- Product form enhancements:
+  - new `Robot Marque` button on brand field,
+  - new quick button to open `Liens marques` page.
+
+### Changed
+- Brand sync now handles both:
+  - `products -> Marque` to `Marques`,
+  - `products -> (Marque, Sous_marque)` to `Liens_marques` (deduplicated pair key).
+- Product form now auto-fills parent brand when `Sous_marque` matches an active link.
+- Conflict-safe behavior for ambiguous sub-brand links (no auto-fill, warning in terminal).
+- Runtime version bumped to `4.0.0`.
+
+## [3.0.0] - 2026-02-20
+
+### Added
+- Native Grocy master-data integration for brands:
+  - New userentity `Marques` (not shown in sidebar by default).
+  - New userfields on `Marques`: `Marque` and `logo_marque` (`image`).
+- New `Marque` menu entry injected in Grocy manage-data dropdown.
+- Automatic `products -> Marque` sync to `Marques` on:
+  - brand save from product form (throttled),
+  - click on the `Marque` menu entry (forced sync before opening page).
+
+### Changed
+- Barcode robot and auto-assist now use one strategy:
+  - alternative lookup first,
+  - automatic fallback to normal lookup when alternative path fails.
+- Barcode lookup internals now support per-run in-memory request caching (`provider|normalized-name`) to avoid duplicate API calls.
+- Runtime version bumped to `3.0.0`.
+
 ## [2.1.0] - 2026-02-19
 
 ### Added

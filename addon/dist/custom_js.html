@@ -10,7 +10,7 @@
   NERDCORE.registerAddon({
     id: 'producthelper',
     name: 'ProductHelper',
-    version: '2.1.0',
+    version: '4.0.0',
     settingsSection: 'producthelper',
     settingsTitle: 'ProductHelper',
     settingsIcon: 'fa-box-open',
@@ -146,6 +146,7 @@
     productBarcodesHeaderRefresh: null,
     productConversionFractionObserver: null,
     barcodeAutofillObserver: null,
+    barcodeLookupRunCache: new Map(),
     productFormTypeRulesRefresh: null,
     productFormRuleSyncing: false,
     productUserfieldsSavePatched: false,
@@ -170,6 +171,19 @@
     addonUpdateInstalling: false,
     addonUpdateReleaseChoices: [],
     addonUpdateLocalVersionPromise: null,
+    userentityIdCache: new Map(),
+    marquesUserentityId: 0,
+    brandLinksUserentityId: 0,
+    marquesSyncInFlight: false,
+    marquesSyncLastAt: 0,
+    brandLinksCacheRows: null,
+    brandLinksCacheAt: 0,
+    brandLinksCachePromise: null,
+    brandLinkIndexCache: null,
+    brandLinkIndexCacheAt: 0,
+    initialBrandLinkMigrationPromise: null,
+    manageDataBrandObserver: null,
+    manageDataBrandEnsureTimer: null,
   };
 
   const CHART_IDS = [
@@ -737,7 +751,8 @@
   const USER_DATA_TRANSFER_SCHEMA = 'statnerd-user-data';
   const USER_DATA_TRANSFER_SCHEMA_VERSION = 1;
   const USER_DATA_TRANSFER_STORAGE_PREFIX = 'grocy_dash_';
-  const ADDON_RUNTIME_VERSION = '2.1.0';
+  const PRODUCTHELPER_BRAND_LINK_MIGRATION_KEY = 'grocy_dash_producthelper_brand_link_migration_v1';
+  const ADDON_RUNTIME_VERSION = '4.0.0';
   const ADDON_UPDATE_DEFAULT_REPOSITORY = 'Raph563/ProductHelper';
   const ADDON_UPDATE_DEFAULT_LOCAL_ROOT = 'C:\\Users\\Admin\\Documents\\Docker\\grocy';
   const ADDON_UPDATE_RELAY_BASE_URL = (NERDCORE && typeof NERDCORE.getUpdateApiBase === 'function')
@@ -787,6 +802,24 @@
       descriptionFr: '',
       descriptionEn: '',
       showInSidebar: 1,
+      iconCssClass: '',
+    },
+    {
+      name: 'Marques',
+      captionFr: 'Marques',
+      captionEn: 'Brands',
+      descriptionFr: '',
+      descriptionEn: '',
+      showInSidebar: 0,
+      iconCssClass: '',
+    },
+    {
+      name: 'Liens_marques',
+      captionFr: 'Liens marques',
+      captionEn: 'Brand links',
+      descriptionFr: '',
+      descriptionEn: '',
+      showInSidebar: 0,
       iconCssClass: '',
     },
   ];
@@ -1018,6 +1051,66 @@
       sortNumber: 7,
       inputRequired: 1,
       defaultValue: '',
+      config: '',
+    },
+    {
+      entity: 'userentity:Marques',
+      name: 'Marque',
+      captionFr: 'Marque',
+      captionEn: 'Brand',
+      type: 'text-single-line',
+      showAsColumn: 1,
+      sortNumber: 1,
+      inputRequired: 1,
+      defaultValue: '',
+      config: '',
+    },
+    {
+      entity: 'userentity:Marques',
+      name: 'logo_marque',
+      captionFr: 'Logo-marque',
+      captionEn: 'Brand logo',
+      type: 'image',
+      showAsColumn: 1,
+      sortNumber: 2,
+      inputRequired: 0,
+      defaultValue: '',
+      config: '',
+    },
+    {
+      entity: 'userentity:Liens_marques',
+      name: 'Marque_parente',
+      captionFr: 'Marque parente',
+      captionEn: 'Parent brand',
+      type: 'text-single-line',
+      showAsColumn: 1,
+      sortNumber: 1,
+      inputRequired: 1,
+      defaultValue: '',
+      config: '',
+    },
+    {
+      entity: 'userentity:Liens_marques',
+      name: 'Sous_marque',
+      captionFr: 'Sous-marque',
+      captionEn: 'Sub-brand',
+      type: 'text-single-line',
+      showAsColumn: 1,
+      sortNumber: 2,
+      inputRequired: 1,
+      defaultValue: '',
+      config: '',
+    },
+    {
+      entity: 'userentity:Liens_marques',
+      name: 'Actif',
+      captionFr: 'Actif',
+      captionEn: 'Active',
+      type: 'checkbox',
+      showAsColumn: 1,
+      sortNumber: 3,
+      inputRequired: 0,
+      defaultValue: '1',
       config: '',
     },
   ];
@@ -1506,8 +1599,16 @@
       settings_section_providers: 'Fournisseurs IA',
       settings_section_brand_logos: 'Logos de marques',
       settings_section_group_logos: 'Logos de groupes',
+      settings_section_brand_links: 'Liens marques',
       settings_section_addon_compat: 'Compatibilité addon',
       settings_section_saved: 'Section "{{section}}" sauvegardée.',
+      brand_links_migration_desc: 'Crée/synchronise les marques et les liens parent -> sous-marque à partir des produits existants.',
+      brand_links_migration_run_btn: 'Migrer les liens marques',
+      brand_links_migration_status_idle: 'Migration liens marques en attente.',
+      brand_links_migration_status_running: 'Migration liens marques en cours...',
+      brand_links_migration_status_done: 'Migration terminée: {{brands}} marque(s) créée(s), {{links}} lien(s) créé(s).',
+      brand_links_migration_status_skipped: 'Migration déjà effectuée: aucune action.',
+      brand_links_migration_status_error: 'Échec migration liens marques: {{msg}}',
       addon_compat_desc: 'Ajoute les groupes produits, entités utilisateur et attributs utilisés par l’addon.',
       addon_compat_scope_note: 'Portée: product_groups + userentities + userfields. Détection automatique de l’existant.',
       addon_compat_run_btn: 'Appliquer la compatibilité',
@@ -1867,8 +1968,8 @@
       barcode_lookup_provider_openfoodfacts: 'OFF (OpenFoodFacts)',
       barcode_lookup_provider_openproductsfacts: 'OPF (OpenProductsFacts)',
       barcode_lookup_provider_off: 'Désactivé',
-      barcode_lookup_provider_hint_openfoodfacts: 'OFF est essayé en premier, puis OPF en fallback si activé.',
-      barcode_lookup_provider_hint_openproductsfacts: 'OPF est essayé en premier, puis OFF en fallback si activé.',
+      barcode_lookup_provider_hint_openfoodfacts: 'Stratégie auto: recherche alternative d’abord, puis normale. OFF reste le fournisseur prioritaire (fallback OPF si activé).',
+      barcode_lookup_provider_hint_openproductsfacts: 'Stratégie auto: recherche alternative d’abord, puis normale. OPF reste le fournisseur prioritaire (fallback OFF si activé).',
       barcode_lookup_provider_hint_off: 'Désactive toutes les requêtes API OFF/OPF.',
       barcode_lookup_enabled_label: 'Activer les requêtes API OFF/OPF',
       barcode_lookup_enabled_hint: 'Si désactivé, aucun appel OFF/OPF n’est lancé.',
@@ -1939,6 +2040,18 @@
       barcode_autofill_assist_on_title: 'Assistant instantané activé (recherche auto à l’ouverture).',
       barcode_autofill_assist_off_title: 'Assistant instantané désactivé.',
       barcode_autofill_assist_auto_run: 'Assistant instantané: lancement automatique de la recherche.',
+      product_brand_robot_title: 'Détecter la marque depuis le nom produit',
+      product_brand_manage_links_title: 'Ouvrir la page Liens marques',
+      product_brand_robot_name_missing: 'Nom produit vide: impossible de détecter une marque.',
+      product_brand_robot_parse_failed: 'Aucune marque détectée dans le nom produit.',
+      product_brand_robot_detected: 'Marque détectée: {{brand}}.',
+      product_brand_robot_exists: 'Marque existante appliquée: {{brand}}.',
+      product_brand_robot_create_prompt: 'Marque "{{brand}}" introuvable. Ajouter dans la base Marques ?',
+      product_brand_robot_created: 'Marque créée puis appliquée: {{brand}}.',
+      product_brand_robot_create_cancelled: 'Ajout marque annulé par l’utilisateur.',
+      product_brand_link_applied: 'Sous-marque "{{sub}}" liée à la marque "{{brand}}".',
+      product_brand_link_conflict: 'Conflit de liens pour "{{sub}}": {{parents}}. Marque non modifiée.',
+      product_brand_link_missing: 'Aucun lien parent trouvé pour "{{sub}}".',
       barcode_header_open_off_title: 'Ouvrir OFF (OpenFoodFacts) pour ce produit',
       barcode_header_open_opf_title: 'Ouvrir OPF (OpenProductsFacts) pour ce produit',
       barcode_header_google_title: 'Rechercher sur Google + fournisseur actif',
@@ -2169,8 +2282,16 @@
       settings_section_providers: 'AI providers',
       settings_section_brand_logos: 'Brand logos',
       settings_section_group_logos: 'Group logos',
+      settings_section_brand_links: 'Brand links',
       settings_section_addon_compat: 'Addon compatibility',
       settings_section_saved: 'Section "{{section}}" saved.',
+      brand_links_migration_desc: 'Creates/syncs brands and parent -> sub-brand links from existing products.',
+      brand_links_migration_run_btn: 'Run brand links migration',
+      brand_links_migration_status_idle: 'Brand links migration idle.',
+      brand_links_migration_status_running: 'Brand links migration running...',
+      brand_links_migration_status_done: 'Migration done: {{brands}} brand(s) created, {{links}} link(s) created.',
+      brand_links_migration_status_skipped: 'Migration already completed: no action.',
+      brand_links_migration_status_error: 'Brand links migration failed: {{msg}}',
       addon_compat_desc: 'Adds product groups, user entities, and fields used by the addon.',
       addon_compat_scope_note: 'Scope: product_groups + userentities + userfields. Existing items are auto-detected.',
       addon_compat_run_btn: 'Apply compatibility',
@@ -2530,8 +2651,8 @@
       barcode_lookup_provider_openfoodfacts: 'OFF (OpenFoodFacts)',
       barcode_lookup_provider_openproductsfacts: 'OPF (OpenProductsFacts)',
       barcode_lookup_provider_off: 'Disabled',
-      barcode_lookup_provider_hint_openfoodfacts: 'OFF is tried first, then OPF as fallback when enabled.',
-      barcode_lookup_provider_hint_openproductsfacts: 'OPF is tried first, then OFF as fallback when enabled.',
+      barcode_lookup_provider_hint_openfoodfacts: 'Auto strategy: alternative lookup first, then normal lookup. OFF stays primary (OPF fallback when enabled).',
+      barcode_lookup_provider_hint_openproductsfacts: 'Auto strategy: alternative lookup first, then normal lookup. OPF stays primary (OFF fallback when enabled).',
       barcode_lookup_provider_hint_off: 'Disables all OFF/OPF API requests.',
       barcode_lookup_enabled_label: 'Enable OFF/OPF API requests',
       barcode_lookup_enabled_hint: 'When disabled, no OFF/OPF call is sent.',
@@ -2602,6 +2723,18 @@
       barcode_autofill_assist_on_title: 'Instant assistant enabled (auto search on open).',
       barcode_autofill_assist_off_title: 'Instant assistant disabled.',
       barcode_autofill_assist_auto_run: 'Instant assistant: automatic search started.',
+      product_brand_robot_title: 'Detect brand from product name',
+      product_brand_manage_links_title: 'Open Brand links page',
+      product_brand_robot_name_missing: 'Product name is empty: cannot detect a brand.',
+      product_brand_robot_parse_failed: 'No brand detected in product name.',
+      product_brand_robot_detected: 'Detected brand: {{brand}}.',
+      product_brand_robot_exists: 'Existing brand applied: {{brand}}.',
+      product_brand_robot_create_prompt: 'Brand "{{brand}}" was not found. Add it to the Brands database?',
+      product_brand_robot_created: 'Brand created and applied: {{brand}}.',
+      product_brand_robot_create_cancelled: 'Brand creation cancelled by user.',
+      product_brand_link_applied: 'Sub-brand "{{sub}}" linked to brand "{{brand}}".',
+      product_brand_link_conflict: 'Link conflict for "{{sub}}": {{parents}}. Brand was not changed.',
+      product_brand_link_missing: 'No parent link found for "{{sub}}".',
       barcode_header_open_off_title: 'Open OFF (OpenFoodFacts) for this product',
       barcode_header_open_opf_title: 'Open OPF (OpenProductsFacts) for this product',
       barcode_header_google_title: 'Search on Google + active provider',
@@ -12436,6 +12569,74 @@
     refreshAddonCompatibilityScan({ render: true });
   }
 
+  function setBrandLinksMigrationSettingsStatus(textInput = '', toneInput = 'muted') {
+    const node = document.getElementById('dash_brand_links_migration_status');
+    if (!node) return;
+    const text = clean(textInput || '');
+    const tone = clean(toneInput || 'muted').toLowerCase();
+    node.classList.remove('text-muted', 'text-info', 'text-success', 'text-danger', 'text-warning');
+    const toneClass = tone === 'danger'
+      ? 'text-danger'
+      : tone === 'warning'
+        ? 'text-warning'
+        : tone === 'success'
+          ? 'text-success'
+          : tone === 'info'
+            ? 'text-info'
+            : 'text-muted';
+    node.classList.add(toneClass);
+    node.textContent = text || t('brand_links_migration_status_idle');
+  }
+
+  function ensureBrandLinksMigrationSettingsSection() {
+    const overlay = document.getElementById('dash_ai_settings_overlay');
+    if (!overlay) return;
+    if (document.getElementById('dash_brand_links_migration_section')) return;
+
+    const body = overlay.querySelector('.card-body');
+    if (!body) return;
+
+    const section = document.createElement('div');
+    section.id = 'dash_brand_links_migration_section';
+    section.className = 'dash-settings-section p-2 mt-3';
+    section.innerHTML = `
+      <div class="small font-weight-bold mb-2">${t('settings_section_brand_links')}</div>
+      <div class="small text-muted mb-2">${t('brand_links_migration_desc')}</div>
+      <div class="d-flex flex-wrap align-items-center">
+        <button id="dash_brand_links_migration_run" type="button" class="btn btn-outline-info btn-sm mb-1">${t('brand_links_migration_run_btn')}</button>
+      </div>
+      <div id="dash_brand_links_migration_status" class="small mt-2 text-muted">${t('brand_links_migration_status_idle')}</div>
+    `;
+
+    const compatSection = document.getElementById('dash_addon_compat_section');
+    if (compatSection && compatSection.parentNode) {
+      compatSection.parentNode.insertBefore(section, compatSection.nextSibling);
+    } else {
+      body.appendChild(section);
+    }
+
+    section.querySelector('#dash_brand_links_migration_run')?.addEventListener('click', async () => {
+      setBrandLinksMigrationSettingsStatus(t('brand_links_migration_status_running'), 'info');
+      try {
+        const result = await runInitialBrandLinkMigration({ force: true });
+        if (result && clean(result.skipped)) {
+          setBrandLinksMigrationSettingsStatus(t('brand_links_migration_status_skipped'), 'muted');
+          return;
+        }
+        setBrandLinksMigrationSettingsStatus(
+          t('brand_links_migration_status_done', {
+            brands: fmt(num(result && result.brandsCreated), 0),
+            links: fmt(num(result && result.linksCreated), 0),
+          }),
+          'success'
+        );
+      } catch (error) {
+        const msg = clean(error && error.message ? error.message : String(error)) || t('focus_unknown_error');
+        setBrandLinksMigrationSettingsStatus(t('brand_links_migration_status_error', { msg }), 'danger');
+      }
+    });
+  }
+
   function ensureAddonUpdateSettingsSection() {
     const overlay = document.getElementById('dash_ai_settings_overlay');
     if (!overlay) return;
@@ -12657,7 +12858,7 @@
         id: 'compat',
         tabKey: 'settings_tabs_compat',
         titleKey: 'settings_group_compat',
-        sectionIds: ['dash_addon_compat_section'],
+        sectionIds: ['dash_addon_compat_section', 'dash_brand_links_migration_section'],
       },
       {
         id: 'updates',
@@ -13066,6 +13267,7 @@
     ensureFactsApiTestSection();
     ensurePhotoSearchSettingsSection();
     ensureAddonCompatibilitySection();
+    ensureBrandLinksMigrationSettingsSection();
     ensureAddonUpdateSettingsSection();
     ensureDonneSettingsAboutInfoBlock();
     ensureDonneSettingsLayout();
@@ -26263,6 +26465,750 @@
     }
   }
 
+  function splitProductBrandValues(rawInput = '') {
+    const raw = clean(rawInput || '').replace(/\s+/g, ' ').trim();
+    if (!raw) return [];
+    return raw
+      .split(/[;,|]+/)
+      .map((entry) => clean(entry || '').replace(/\s+/g, ' ').trim())
+      .filter((entry) => !!entry);
+  }
+
+  function dirtyInputLooksLikeProductBrandField(inputEl) {
+    if (!inputEl || inputEl.nodeType !== 1) return false;
+    const fromData = clean(inputEl.getAttribute('data-userfield-name') || '');
+    const fromName = clean(inputEl.getAttribute('name') || '');
+    const fromNameMatch = fromName.match(/userfields\[(.+?)\]/i);
+    const fieldName = clean(fromData || (fromNameMatch && fromNameMatch[1] ? fromNameMatch[1] : fromName));
+    return norm(fieldName).includes('marque') || norm(fieldName).includes('brand');
+  }
+
+  function normalizeBrandLabel(rawInput = '') {
+    return clean(rawInput || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function toSimpleTitleCase(rawInput = '') {
+    const value = normalizeBrandLabel(rawInput);
+    if (!value) return '';
+    return value
+      .split(/\s+/)
+      .map((word) => {
+        if (!word) return '';
+        const lower = word.toLowerCase();
+        return lower.charAt(0).toUpperCase() + lower.slice(1);
+      })
+      .join(' ');
+  }
+
+  function brandNameVariants(rawInput = '') {
+    const value = normalizeBrandLabel(rawInput);
+    if (!value) return [];
+    const out = [];
+    const seen = new Set();
+    const push = (entryInput = '') => {
+      const entry = normalizeBrandLabel(entryInput);
+      if (!entry) return;
+      const key = norm(entry);
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      out.push(entry);
+    };
+    push(value);
+    push(value.toLowerCase());
+    push(value.toUpperCase());
+    push(toSimpleTitleCase(value));
+    return out;
+  }
+
+  function brandLinkPairKey(parentInput = '', subBrandInput = '') {
+    const parentNorm = norm(normalizeBrandLabel(parentInput));
+    const subNorm = norm(normalizeBrandLabel(subBrandInput));
+    if (!parentNorm || !subNorm) return '';
+    return `${parentNorm}::${subNorm}`;
+  }
+
+  function userfieldValueLooksTruthy(rawInput = '') {
+    const valueNorm = norm(clean(rawInput || ''));
+    if (!valueNorm) return true;
+    return !['0', 'false', 'off', 'no', 'non'].includes(valueNorm);
+  }
+
+  async function fetchUserentityIdByName(entityNameInput = '', optionsInput = {}) {
+    const entityName = clean(entityNameInput || '');
+    const targetNorm = norm(entityName);
+    if (!targetNorm) return 0;
+    if (S.userentityIdCache.has(targetNorm) && num(S.userentityIdCache.get(targetNorm)) > 0) {
+      return num(S.userentityIdCache.get(targetNorm));
+    }
+
+    const options = optionsInput && typeof optionsInput === 'object' ? optionsInput : {};
+    let rows = [];
+    try {
+      rows = await fetchUserentitiesForCompatibility();
+    } catch (_err) {}
+    let hit = rows.find((row) => norm(clean(row && row.name ? row.name : '')) === targetNorm)
+      || rows.find((row) => norm(clean(row && row.caption ? row.caption : '')) === targetNorm);
+    let entityId = num(hit && hit.id ? hit.id : 0);
+    if (!(entityId > 0) && options.ensureCompatibility === true) {
+      await runAddonCompatibilitySetup({
+        source: `${targetNorm}-sync`,
+        markSeen: false,
+        skipMappingPrompt: true,
+      }).catch(() => null);
+      try {
+        rows = await fetchUserentitiesForCompatibility();
+      } catch (_err) {
+        rows = [];
+      }
+      hit = rows.find((row) => norm(clean(row && row.name ? row.name : '')) === targetNorm)
+        || rows.find((row) => norm(clean(row && row.caption ? row.caption : '')) === targetNorm);
+      entityId = num(hit && hit.id ? hit.id : 0);
+    }
+    if (entityId > 0) S.userentityIdCache.set(targetNorm, entityId);
+    return entityId > 0 ? entityId : 0;
+  }
+
+  async function fetchMarquesUserentityId(optionsInput = {}) {
+    if (S.marquesUserentityId > 0) return S.marquesUserentityId;
+    const id = await fetchUserentityIdByName('Marques', optionsInput);
+    if (id > 0) S.marquesUserentityId = id;
+    return id;
+  }
+
+  async function fetchBrandLinksUserentityId(optionsInput = {}) {
+    if (S.brandLinksUserentityId > 0) return S.brandLinksUserentityId;
+    const id = await fetchUserentityIdByName('Liens_marques', optionsInput);
+    if (id > 0) S.brandLinksUserentityId = id;
+    return id;
+  }
+
+  async function fetchUserobjectsByUserentityId(userentityIdInput) {
+    const userentityId = num(userentityIdInput);
+    if (!(userentityId > 0)) return [];
+    let payload;
+    try {
+      payload = await fetchJson(`api/objects/userobjects?query[]=userentity_id=${userentityId}`);
+    } catch (_err) {
+      payload = await fetchJson('api/objects/userobjects');
+    }
+    let rows = extractArray(payload);
+    if (rows.length === 0) {
+      rows = deepCollectObjects(payload, (obj) => hasAnyKey(obj, ['id']) && hasAnyKey(obj, ['userentity_id']));
+    }
+    return rows.filter((row) => num(row && row.userentity_id) === userentityId && num(row && row.id) > 0);
+  }
+
+  function extractMarqueValueFromUserentityPayload(payloadInput = null) {
+    const payload = payloadInput && typeof payloadInput === 'object' ? payloadInput : {};
+    const names = new Set(['marque', 'brand']);
+    const ids = new Set();
+    return normalizeBrandLabel(extractBrandValueFromUserfieldsPayload(payload, names, ids) || '');
+  }
+
+  function extractUserfieldValueFromPayloadByNames(payloadInput = null, nameListInput = []) {
+    const payload = payloadInput && typeof payloadInput === 'object' ? payloadInput : {};
+    const namesNorm = new Set((Array.isArray(nameListInput) ? nameListInput : []).map((name) => norm(name)).filter((name) => !!name));
+    if (!namesNorm.size) return '';
+
+    if (!Array.isArray(payload)) {
+      for (const [key, value] of Object.entries(payload)) {
+        if (!namesNorm.has(norm(key))) continue;
+        const candidate = scalarToText(value);
+        if (candidate) return clean(candidate);
+      }
+    }
+
+    const valueRows = deepCollectObjects(
+      payload,
+      (o) => hasAnyKey(o, ['value', 'field_value', 'fieldValue', 'val'])
+        && (hasAnyKey(o, ['name', 'field_name', 'caption', 'field']) || hasAnyKey(o, ['field_id', 'userfield_id']))
+    );
+    for (const row of valueRows) {
+      const fieldName = pickFirstString(row, ['name', 'field_name', 'caption', 'field']);
+      if (!namesNorm.has(norm(fieldName))) continue;
+      const candidate = scalarToText(row.value ?? row.field_value ?? row.fieldValue ?? row.val ?? '');
+      if (candidate) return clean(candidate);
+    }
+    return '';
+  }
+
+  function extractBrandLinkFromUserentityPayload(payloadInput = null) {
+    const payload = payloadInput && typeof payloadInput === 'object' ? payloadInput : {};
+    const parentBrand = normalizeBrandLabel(
+      extractUserfieldValueFromPayloadByNames(payload, ['Marque_parente', 'Parent_brand', 'Parent brand', 'Marque parente'])
+    );
+    const subBrand = normalizeBrandLabel(
+      extractUserfieldValueFromPayloadByNames(payload, ['Sous_marque', 'Sub_brand', 'Sub-brand', 'Sub brand', 'Sous-marque'])
+    );
+    const activeRaw = clean(
+      extractUserfieldValueFromPayloadByNames(payload, ['Actif', 'Active'])
+    );
+    const active = userfieldValueLooksTruthy(activeRaw);
+    return { parentBrand, subBrand, active };
+  }
+
+  async function fetchExistingMarquesNameMap(entityNameInput, userentityIdInput) {
+    const entityName = clean(entityNameInput || 'Marques');
+    const userentityId = num(userentityIdInput);
+    const out = new Map();
+    const rows = await fetchUserobjectsByUserentityId(userentityId);
+    if (!rows.length) return out;
+    const entityRef = `userentity-${entityName}`;
+    let cursor = 0;
+    const workers = Math.min(8, rows.length);
+    async function worker() {
+      while (cursor < rows.length) {
+        const index = cursor;
+        cursor += 1;
+        const row = rows[index];
+        const objectId = num(row && row.id);
+        if (!(objectId > 0)) continue;
+        try {
+          const payload = await fetchJson(`api/userfields/${entityRef}/${objectId}`);
+          const brand = extractMarqueValueFromUserentityPayload(payload);
+          const key = norm(brand);
+          if (!key) continue;
+          if (!out.has(key)) out.set(key, brand);
+        } catch (_err) {}
+      }
+    }
+    await Promise.all(Array.from({ length: workers }, () => worker()));
+    return out;
+  }
+
+  async function fetchExistingMarquesNameSet(entityNameInput, userentityIdInput) {
+    const map = await fetchExistingMarquesNameMap(entityNameInput, userentityIdInput);
+    return new Set(Array.from(map.keys()));
+  }
+
+  async function createMarquesObjectWithBrand(entityNameInput, userentityIdInput, brandInput = '') {
+    const entityName = clean(entityNameInput || 'Marques');
+    const userentityId = num(userentityIdInput);
+    const brand = clean(brandInput || '').replace(/\s+/g, ' ').trim();
+    if (!(userentityId > 0) || !brand) return 0;
+    const creation = await postJson('api/objects/userobjects', { userentity_id: userentityId });
+    let objectId = pickFirstNumber(creation, ['created_object_id', 'inserted_id', 'id', 'object_id']);
+    if (!(objectId > 0)) {
+      const rows = await fetchUserobjectsByUserentityId(userentityId);
+      objectId = rows.reduce((maxId, row) => Math.max(maxId, num(row && row.id)), 0);
+    }
+    if (!(objectId > 0)) {
+      throw new Error(langText('Impossible de créer la marque (ID objet introuvable).', 'Unable to create brand (object ID missing).'));
+    }
+    await userfieldApiPutPromise(`userfields/userentity-${entityName}/${objectId}`, { Marque: brand });
+    return objectId;
+  }
+
+  async function fetchExistingBrandLinksMap(entityNameInput, userentityIdInput) {
+    const entityName = clean(entityNameInput || 'Liens_marques');
+    const userentityId = num(userentityIdInput);
+    const out = new Map();
+    const rows = await fetchUserobjectsByUserentityId(userentityId);
+    if (!rows.length) return out;
+    const entityRef = `userentity-${entityName}`;
+    let cursor = 0;
+    const workers = Math.min(8, rows.length);
+    async function worker() {
+      while (cursor < rows.length) {
+        const index = cursor;
+        cursor += 1;
+        const row = rows[index];
+        const objectId = num(row && row.id);
+        if (!(objectId > 0)) continue;
+        try {
+          const payload = await fetchJson(`api/userfields/${entityRef}/${objectId}`);
+          const parsed = extractBrandLinkFromUserentityPayload(payload);
+          const key = brandLinkPairKey(parsed.parentBrand, parsed.subBrand);
+          if (!key) continue;
+          if (!out.has(key)) out.set(key, {
+            parentBrand: parsed.parentBrand,
+            subBrand: parsed.subBrand,
+            active: parsed.active !== false,
+          });
+        } catch (_err) {}
+      }
+    }
+    await Promise.all(Array.from({ length: workers }, () => worker()));
+    return out;
+  }
+
+  async function createBrandLinkObject(entityNameInput, userentityIdInput, parentBrandInput = '', subBrandInput = '', activeInput = true) {
+    const entityName = clean(entityNameInput || 'Liens_marques');
+    const userentityId = num(userentityIdInput);
+    const parentBrand = normalizeBrandLabel(parentBrandInput);
+    const subBrand = normalizeBrandLabel(subBrandInput);
+    if (!(userentityId > 0) || !parentBrand || !subBrand) return 0;
+    const creation = await postJson('api/objects/userobjects', { userentity_id: userentityId });
+    let objectId = pickFirstNumber(creation, ['created_object_id', 'inserted_id', 'id', 'object_id']);
+    if (!(objectId > 0)) {
+      const rows = await fetchUserobjectsByUserentityId(userentityId);
+      objectId = rows.reduce((maxId, row) => Math.max(maxId, num(row && row.id)), 0);
+    }
+    if (!(objectId > 0)) {
+      throw new Error(langText('Impossible de créer le lien de marque (ID objet introuvable).', 'Unable to create brand link (object ID missing).'));
+    }
+    await userfieldApiPutPromise(`userfields/userentity-${entityName}/${objectId}`, {
+      Marque_parente: parentBrand,
+      Sous_marque: subBrand,
+      Actif: activeInput === false ? '0' : '1',
+    });
+    return objectId;
+  }
+
+  async function loadProductBrandRelationMapByApi(productIdsInput = []) {
+    const map = new Map();
+    const ids = Array.from(new Set((Array.isArray(productIdsInput) ? productIdsInput : []).map((id) => num(id)).filter((id) => id > 0)));
+    if (!ids.length) return map;
+    let cursor = 0;
+    const workers = Math.min(8, ids.length);
+    async function worker() {
+      while (cursor < ids.length) {
+        const index = cursor;
+        cursor += 1;
+        const productId = ids[index];
+        try {
+          const payload = await fetchJson(`api/userfields/products/${productId}`);
+          const brand = normalizeBrandLabel(extractUserfieldValueFromPayloadByNames(payload, ['Marque', 'Brand']));
+          const subBrand = normalizeBrandLabel(extractUserfieldValueFromPayloadByNames(payload, ['Sous_marque', 'Sous-marque', 'Sub-brand', 'Sub_brand', 'Sub brand']));
+          map.set(productId, { brand, subBrand });
+        } catch (_err) {
+          map.set(productId, { brand: '', subBrand: '' });
+        }
+      }
+    }
+    await Promise.all(Array.from({ length: workers }, () => worker()));
+    return map;
+  }
+
+  async function collectProductBrandRelationsForSync() {
+    const payload = await fetchJson('api/objects/products');
+    let products = extractArray(payload);
+    if (products.length === 0) {
+      products = deepCollectObjects(payload, (obj) => hasAnyKey(obj, ['id']) && hasAnyKey(obj, ['name']));
+    }
+    const ids = products.map((row) => num(row && row.id)).filter((id) => id > 0);
+    if (!ids.length) {
+      return { brands: [], links: [] };
+    }
+    const relations = await loadProductBrandRelationMapByApi(ids);
+    const brandsByNorm = new Map();
+    const linksByKey = new Map();
+    relations.forEach((entry) => {
+      const parentBrands = splitProductBrandValues(entry && entry.brand ? entry.brand : '');
+      const subBrands = splitProductBrandValues(entry && entry.subBrand ? entry.subBrand : '');
+      parentBrands.forEach((parentBrand) => {
+        const key = norm(parentBrand);
+        if (key && !brandsByNorm.has(key)) brandsByNorm.set(key, parentBrand);
+      });
+      subBrands.forEach((subBrand) => {
+        const subKey = norm(subBrand);
+        if (subKey && !brandsByNorm.has(subKey)) brandsByNorm.set(subKey, subBrand);
+      });
+      if (!parentBrands.length || !subBrands.length) return;
+      subBrands.forEach((subBrand) => {
+        parentBrands.forEach((parentBrand) => {
+          const key = brandLinkPairKey(parentBrand, subBrand);
+          if (!key || linksByKey.has(key)) return;
+          linksByKey.set(key, {
+            parentBrand: normalizeBrandLabel(parentBrand),
+            subBrand: normalizeBrandLabel(subBrand),
+            active: true,
+          });
+        });
+      });
+    });
+    return {
+      brands: Array.from(brandsByNorm.values()).sort((left, right) => left.localeCompare(right, undefined, { sensitivity: 'base' })),
+      links: Array.from(linksByKey.values()),
+    };
+  }
+
+  function clearBrandLinksCache() {
+    S.brandLinksCacheRows = null;
+    S.brandLinksCacheAt = 0;
+    S.brandLinksCachePromise = null;
+    S.brandLinkIndexCache = null;
+    S.brandLinkIndexCacheAt = 0;
+  }
+
+  async function fetchBrandLinksRows(optionsInput = {}) {
+    const options = optionsInput && typeof optionsInput === 'object' ? optionsInput : {};
+    const force = options.force === true;
+    const ttlMs = Math.max(0, num(options.ttlMs) || (2 * 60 * 1000));
+    const now = Date.now();
+    if (!force && Array.isArray(S.brandLinksCacheRows) && S.brandLinksCacheAt > 0 && (now - S.brandLinksCacheAt) < ttlMs) {
+      return S.brandLinksCacheRows;
+    }
+    if (!force && S.brandLinksCachePromise) return S.brandLinksCachePromise;
+    S.brandLinksCachePromise = (async () => {
+      const entityId = await fetchBrandLinksUserentityId({ ensureCompatibility: true });
+      if (!(entityId > 0)) return [];
+      const linksMap = await fetchExistingBrandLinksMap('Liens_marques', entityId);
+      const rows = Array.from(linksMap.values());
+      S.brandLinksCacheRows = rows;
+      S.brandLinksCacheAt = Date.now();
+      return rows;
+    })();
+    try {
+      return await S.brandLinksCachePromise;
+    } finally {
+      S.brandLinksCachePromise = null;
+    }
+  }
+
+  function buildBrandLinkIndex(rowsInput = []) {
+    const rows = Array.isArray(rowsInput) ? rowsInput : [];
+    const index = new Map();
+    rows.forEach((row) => {
+      const parentBrand = normalizeBrandLabel(row && row.parentBrand ? row.parentBrand : '');
+      const subBrand = normalizeBrandLabel(row && row.subBrand ? row.subBrand : '');
+      const active = row && row.active !== false;
+      if (!active || !parentBrand || !subBrand) return;
+      const subKey = norm(subBrand);
+      if (!subKey) return;
+      if (!index.has(subKey)) {
+        index.set(subKey, {
+          subBrand,
+          parentBrand,
+          parents: new Map([[norm(parentBrand), parentBrand]]),
+          conflict: false,
+        });
+        return;
+      }
+      const existing = index.get(subKey);
+      const parentKey = norm(parentBrand);
+      if (!existing.parents.has(parentKey)) {
+        existing.parents.set(parentKey, parentBrand);
+      }
+      const parentValues = Array.from(existing.parents.values());
+      if (parentValues.length > 1) {
+        existing.conflict = true;
+      }
+      existing.parentBrand = parentValues[0] || existing.parentBrand;
+    });
+    return index;
+  }
+
+  async function loadBrandLinkIndex(optionsInput = {}) {
+    const options = optionsInput && typeof optionsInput === 'object' ? optionsInput : {};
+    const force = options.force === true;
+    const ttlMs = Math.max(0, num(options.ttlMs) || (2 * 60 * 1000));
+    const now = Date.now();
+    if (!force && S.brandLinkIndexCache && S.brandLinkIndexCacheAt > 0 && (now - S.brandLinkIndexCacheAt) < ttlMs) {
+      return S.brandLinkIndexCache;
+    }
+    const rows = await fetchBrandLinksRows({ force, ttlMs });
+    const index = buildBrandLinkIndex(rows);
+    S.brandLinkIndexCache = index;
+    S.brandLinkIndexCacheAt = Date.now();
+    return index;
+  }
+
+  function hasInitialBrandLinkMigrationFlag() {
+    try {
+      const raw = localStorage.getItem(PRODUCTHELPER_BRAND_LINK_MIGRATION_KEY);
+      if (!raw) return false;
+      const parsed = JSON.parse(raw);
+      return !!(parsed && parsed.doneAt);
+    } catch (_err) {
+      return false;
+    }
+  }
+
+  function saveInitialBrandLinkMigrationFlag(payloadInput = null) {
+    const payload = payloadInput && typeof payloadInput === 'object' ? payloadInput : {};
+    const next = {
+      doneAt: clean(payload.doneAt || new Date().toISOString()),
+      brandsCreated: Math.max(0, num(payload.brandsCreated)),
+      linksCreated: Math.max(0, num(payload.linksCreated)),
+    };
+    try {
+      localStorage.setItem(PRODUCTHELPER_BRAND_LINK_MIGRATION_KEY, JSON.stringify(next));
+    } catch (_err) {}
+    return next;
+  }
+
+  async function runInitialBrandLinkMigration(optionsInput = {}) {
+    const options = optionsInput && typeof optionsInput === 'object' ? optionsInput : {};
+    const force = options.force === true;
+    if (!force && hasInitialBrandLinkMigrationFlag()) {
+      return { skipped: 'already-done', brandsCreated: 0, linksCreated: 0 };
+    }
+    if (S.initialBrandLinkMigrationPromise) return S.initialBrandLinkMigrationPromise;
+    S.initialBrandLinkMigrationPromise = (async () => {
+      const result = await syncBrandsFromProductsToMarquesEntity({
+        force: true,
+        minIntervalMs: 0,
+      });
+      saveInitialBrandLinkMigrationFlag({
+        doneAt: new Date().toISOString(),
+        brandsCreated: num(result && result.brandsCreated),
+        linksCreated: num(result && result.linksCreated),
+      });
+      return result;
+    })();
+    try {
+      return await S.initialBrandLinkMigrationPromise;
+    } finally {
+      S.initialBrandLinkMigrationPromise = null;
+    }
+  }
+
+  async function syncBrandsFromProductsToMarquesEntity(optionsInput = {}) {
+    const options = optionsInput && typeof optionsInput === 'object' ? optionsInput : {};
+    const force = options.force === true;
+    const now = Date.now();
+    const minIntervalMs = Math.max(0, num(options.minIntervalMs));
+    const ttlMs = minIntervalMs > 0 ? minIntervalMs : (5 * 60 * 1000);
+    if (S.marquesSyncInFlight) {
+      return { skipped: 'in-flight', brandsCreated: 0, linksCreated: 0, totalBrands: 0, totalLinks: 0 };
+    }
+    if (!force && S.marquesSyncLastAt > 0 && (now - S.marquesSyncLastAt) < ttlMs) {
+      return { skipped: 'ttl', brandsCreated: 0, linksCreated: 0, totalBrands: 0, totalLinks: 0 };
+    }
+    S.marquesSyncInFlight = true;
+    try {
+      const brandsEntityName = 'Marques';
+      const linksEntityName = 'Liens_marques';
+      const [brandsEntityId, linksEntityId] = await Promise.all([
+        fetchMarquesUserentityId({ ensureCompatibility: true }),
+        fetchBrandLinksUserentityId({ ensureCompatibility: true }),
+      ]);
+      if (!(brandsEntityId > 0)) {
+        throw new Error(langText('Entité Marques introuvable.', 'Marques entity not found.'));
+      }
+      if (!(linksEntityId > 0)) {
+        throw new Error(langText('Entité Liens_marques introuvable.', 'Liens_marques entity not found.'));
+      }
+      const relations = await collectProductBrandRelationsForSync();
+      const productBrands = Array.isArray(relations && relations.brands) ? relations.brands : [];
+      const productLinks = Array.isArray(relations && relations.links) ? relations.links : [];
+      if (productBrands.length === 0 && productLinks.length === 0) {
+        S.marquesSyncLastAt = Date.now();
+        return { brandsCreated: 0, linksCreated: 0, totalBrands: 0, totalLinks: 0 };
+      }
+
+      const [existingBrandSet, existingLinksMap] = await Promise.all([
+        fetchExistingMarquesNameSet(brandsEntityName, brandsEntityId),
+        fetchExistingBrandLinksMap(linksEntityName, linksEntityId),
+      ]);
+
+      const toCreate = productBrands.filter((brand) => !existingBrandSet.has(norm(brand)));
+      let brandsCreated = 0;
+      for (const brand of toCreate) {
+        try {
+          await createMarquesObjectWithBrand(brandsEntityName, brandsEntityId, brand);
+          brandsCreated += 1;
+          existingBrandSet.add(norm(brand));
+        } catch (error) {
+          const msg = clean(error && error.message ? error.message : String(error)) || t('focus_unknown_error');
+          console.warn('[ProductHelper] Sync marque échouée:', brand, msg);
+        }
+      }
+
+      let linksCreated = 0;
+      for (const link of productLinks) {
+        const parentBrand = normalizeBrandLabel(link && link.parentBrand ? link.parentBrand : '');
+        const subBrand = normalizeBrandLabel(link && link.subBrand ? link.subBrand : '');
+        const key = brandLinkPairKey(parentBrand, subBrand);
+        if (!key || existingLinksMap.has(key)) continue;
+        try {
+          await createBrandLinkObject(linksEntityName, linksEntityId, parentBrand, subBrand, true);
+          linksCreated += 1;
+          existingLinksMap.set(key, { parentBrand, subBrand, active: true });
+        } catch (error) {
+          const msg = clean(error && error.message ? error.message : String(error)) || t('focus_unknown_error');
+          console.warn('[ProductHelper] Sync lien marque échoué:', `${parentBrand} -> ${subBrand}`, msg);
+        }
+      }
+
+      clearBrandLinksCache();
+      S.marquesSyncLastAt = Date.now();
+      return {
+        brandsCreated,
+        linksCreated,
+        totalBrands: productBrands.length,
+        totalLinks: productLinks.length,
+      };
+    } finally {
+      S.marquesSyncInFlight = false;
+    }
+  }
+
+  function isManageDataAnchorText(anchorInput = null) {
+    const anchor = anchorInput && anchorInput.nodeType === 1 ? anchorInput : null;
+    if (!anchor) return false;
+    const text = norm(clean(anchor.textContent || ''));
+    if (!text) return false;
+    return text.includes('gerer les donnees')
+      || text.includes('gérer les données')
+      || text.includes('manage master data')
+      || text.includes('manage data')
+      || text.includes('master data');
+  }
+
+  function getManageDataMenuAnchor() {
+    const anchors = Array.from(document.querySelectorAll('a.dropdown-item.discrete-link[href]'));
+    const byText = anchors.find((anchor) => isManageDataAnchorText(anchor));
+    if (byText) return byText;
+    const byHref = anchors.find((anchor) => {
+      const href = clean(anchor.getAttribute('href') || '').toLowerCase();
+      if (!href) return false;
+      return href.includes('/manage')
+        || href.includes('/master')
+        || href.includes('/data')
+        || href.includes('/objects');
+    });
+    return byHref || null;
+  }
+
+  function resolveUserentityUrl(entityIdInput, entityNameInput = 'Marques') {
+    const entityId = num(entityIdInput);
+    const entityName = clean(entityNameInput || 'Marques');
+    const encodedName = encodeURIComponent(entityName);
+    const origin = clean(window.location && window.location.origin ? window.location.origin : '');
+    const defaults = [];
+    if (entityId > 0) {
+      defaults.push(`${origin}/userobjects/${entityId}`);
+      defaults.push(`${origin}/userobject/${entityId}`);
+      defaults.push(`${origin}/userentities/${entityId}/objects`);
+    }
+    defaults.push(`${origin}/userobjects/${encodedName}`);
+    defaults.push(`${origin}/userobject/${encodedName}`);
+
+    const anchors = Array.from(document.querySelectorAll('a[href]'));
+    const medicLink = anchors.find((anchor) => {
+      const text = norm(clean(anchor.textContent || ''));
+      const href = clean(anchor.getAttribute('href') || '');
+      return text.includes('medicament') || /medicament/i.test(href);
+    });
+    if (medicLink) {
+      const href = clean(medicLink.getAttribute('href') || '');
+      const absolute = href ? new URL(href, window.location.origin).toString() : '';
+      if (absolute) {
+        const byName = absolute.replace(/Medicaments/gi, encodedName);
+        const byNameFr = byName.replace(/M%C3%A9dicaments/gi, encodedName);
+        if (byNameFr !== absolute) defaults.unshift(byNameFr);
+        if (byName !== absolute) defaults.unshift(byName);
+        if (entityId > 0) {
+          const byId = absolute.replace(/(\/userobjects?\/)(\d+)(\/?)/i, `$1${entityId}$3`);
+          if (byId !== absolute) defaults.unshift(byId);
+        }
+      }
+    }
+    const unique = Array.from(new Set(defaults.filter((url) => clean(url))));
+    if (!unique.length) {
+      console.warn('[ProductHelper] URL Marques introuvable: fallback /userobjects/<id>.');
+      return `${origin}/userobjects/${entityId > 0 ? entityId : encodedName}`;
+    }
+    return unique[0];
+  }
+
+  async function ensureManageDataBrandEntry() {
+    const anchor = getManageDataMenuAnchor();
+    if (!anchor || !anchor.parentNode) return false;
+    const linkId = 'producthelper-manage-brand-link';
+    let link = document.getElementById(linkId);
+    if (!link) {
+      link = document.createElement('a');
+      link.id = linkId;
+      link.className = anchor.className || 'dropdown-item discrete-link';
+      link.href = '#';
+    }
+    link.innerHTML = `<i class="fa-solid fa-fw fa-tags"></i>&nbsp;${escapeHtml(langText('Marque', 'Brand'))}`;
+    link.title = langText('Synchronise puis ouvre la page Marques', 'Syncs then opens Brands page');
+    if (link.parentNode !== anchor.parentNode) {
+      if (anchor.nextSibling) {
+        anchor.parentNode.insertBefore(link, anchor.nextSibling);
+      } else {
+        anchor.parentNode.appendChild(link);
+      }
+    }
+
+    const entityId = await fetchMarquesUserentityId({ ensureCompatibility: true }).catch(() => 0);
+    const targetUrl = resolveUserentityUrl(entityId, 'Marques');
+    link.href = targetUrl || '#';
+
+    if (link.dataset.manageBrandBound !== '1') {
+      link.dataset.manageBrandBound = '1';
+      link.addEventListener('click', async (event) => {
+        event.preventDefault();
+        const href = clean(link.getAttribute('href') || '');
+        if (!href || href === '#') return;
+        await Promise.race([
+          syncBrandsFromProductsToMarquesEntity({ force: true, minIntervalMs: 0 }).catch(() => null),
+          new Promise((resolve) => setTimeout(resolve, 1800)),
+        ]);
+        window.location.href = href;
+      });
+    }
+    return true;
+  }
+
+  async function ensureManageDataBrandLinksEntry() {
+    const anchor = getManageDataMenuAnchor();
+    if (!anchor || !anchor.parentNode) return false;
+    const previous = document.getElementById('producthelper-manage-brand-link') || anchor;
+    const linkId = 'producthelper-manage-brand-links-link';
+    let link = document.getElementById(linkId);
+    if (!link) {
+      link = document.createElement('a');
+      link.id = linkId;
+      link.className = anchor.className || 'dropdown-item discrete-link';
+      link.href = '#';
+    }
+    link.innerHTML = `<i class="fa-solid fa-fw fa-link"></i>&nbsp;${escapeHtml(langText('Liens marques', 'Brand links'))}`;
+    link.title = t('product_brand_manage_links_title');
+    if (link.parentNode !== anchor.parentNode) {
+      if (previous.nextSibling) {
+        anchor.parentNode.insertBefore(link, previous.nextSibling);
+      } else {
+        anchor.parentNode.appendChild(link);
+      }
+    }
+
+    const entityId = await fetchBrandLinksUserentityId({ ensureCompatibility: true }).catch(() => 0);
+    const targetUrl = resolveUserentityUrl(entityId, 'Liens_marques');
+    link.href = targetUrl || '#';
+
+    if (link.dataset.manageBrandLinksBound !== '1') {
+      link.dataset.manageBrandLinksBound = '1';
+      link.addEventListener('click', async (event) => {
+        event.preventDefault();
+        const href = clean(link.getAttribute('href') || '');
+        if (!href || href === '#') return;
+        await Promise.race([
+          syncBrandsFromProductsToMarquesEntity({ force: true, minIntervalMs: 0 }).catch(() => null),
+          new Promise((resolve) => setTimeout(resolve, 2000)),
+        ]);
+        window.location.href = href;
+      });
+    }
+    return true;
+  }
+
+  function scheduleEnsureManageDataBrandEntry(delayMs = 120) {
+    const delay = Math.max(30, Math.floor(num(delayMs)) || 120);
+    if (S.manageDataBrandEnsureTimer) {
+      clearTimeout(S.manageDataBrandEnsureTimer);
+      S.manageDataBrandEnsureTimer = null;
+    }
+    S.manageDataBrandEnsureTimer = setTimeout(() => {
+      S.manageDataBrandEnsureTimer = null;
+      ensureManageDataBrandEntry().catch(() => null);
+      ensureManageDataBrandLinksEntry().catch(() => null);
+    }, delay);
+  }
+
+  function initManageDataBrandEntryObserver() {
+    if (S.manageDataBrandObserver) return;
+    if (!document.body || !window.MutationObserver) return;
+    S.manageDataBrandObserver = new MutationObserver(() => {
+      scheduleEnsureManageDataBrandEntry(140);
+    });
+    S.manageDataBrandObserver.observe(document.body, { childList: true, subtree: true });
+  }
+
   function patchUserfieldsFormSaveForProductForm() {
     if (S.productUserfieldsSavePatched) return;
     if (!isProductFormPage()) return;
@@ -26286,6 +27232,7 @@
       }
 
       const dirtyInputs = collectDirtyProductUserfieldInputs();
+      const hasBrandFieldDirty = dirtyInputs.some((inputEl) => dirtyInputLooksLikeProductBrandField(inputEl));
       if (dirtyInputs.length === 0) {
         if (typeof success === 'function') success();
         return;
@@ -26296,6 +27243,12 @@
           for (const inputEl of dirtyInputs) {
             await saveSingleUserfieldInput(entity, objectId, inputEl);
             inputEl.classList.remove('is-dirty');
+          }
+          if (hasBrandFieldDirty) {
+            syncBrandsFromProductsToMarquesEntity({
+              force: false,
+              minIntervalMs: 5 * 60 * 1000,
+            }).catch(() => null);
           }
           if (typeof success === 'function') success();
         } catch (xhr) {
@@ -26335,6 +27288,290 @@
       nameNorm: norm(name),
       labelNorm: norm(label),
     };
+  }
+
+  function isSubBrandUserfieldMeta(metaInput = null) {
+    const meta = metaInput && typeof metaInput === 'object' ? metaInput : null;
+    if (!meta) return false;
+    const haystack = `${meta.nameNorm || ''} ${meta.labelNorm || ''}`.trim();
+    if (!haystack) return false;
+    return haystack.includes('sousmarque')
+      || haystack.includes('sous-marque')
+      || haystack.includes('subbrand')
+      || haystack.includes('sub-brand')
+      || haystack.includes('sub brand');
+  }
+
+  function isBrandUserfieldMeta(metaInput = null) {
+    const meta = metaInput && typeof metaInput === 'object' ? metaInput : null;
+    if (!meta) return false;
+    if (isSubBrandUserfieldMeta(meta)) return false;
+    const haystack = `${meta.nameNorm || ''} ${meta.labelNorm || ''}`.trim();
+    if (!haystack) return false;
+    if (meta.nameNorm === 'marque' || meta.labelNorm === 'marque') return true;
+    if (meta.nameNorm === 'brand' || meta.labelNorm === 'brand') return true;
+    return haystack.includes('marque') || haystack.includes('brand');
+  }
+
+  function productBrandUserfieldMeta() {
+    const groups = productUserfieldGroups();
+    for (const group of groups) {
+      const meta = productUserfieldGroupMeta(group);
+      if (isBrandUserfieldMeta(meta)) return meta;
+    }
+    return null;
+  }
+
+  function productSubBrandUserfieldMeta() {
+    const groups = productUserfieldGroups();
+    for (const group of groups) {
+      const meta = productUserfieldGroupMeta(group);
+      if (isSubBrandUserfieldMeta(meta)) return meta;
+    }
+    return null;
+  }
+
+  function productBrandUserfieldInput() {
+    const meta = productBrandUserfieldMeta();
+    return meta && meta.input ? meta.input : null;
+  }
+
+  function productSubBrandUserfieldInput() {
+    const meta = productSubBrandUserfieldMeta();
+    return meta && meta.input ? meta.input : null;
+  }
+
+  function readProductUserfieldInputValue(inputInput = null) {
+    const input = inputInput && inputInput.nodeType === 1 ? inputInput : null;
+    if (!input) return '';
+    if (input.type && String(input.type).toLowerCase() === 'checkbox') {
+      return input.checked ? '1' : '0';
+    }
+    return normalizeBrandLabel(input.value);
+  }
+
+  function setProductUserfieldInputValue(inputInput = null, valueInput = '') {
+    const input = inputInput && inputInput.nodeType === 1 ? inputInput : null;
+    const targetValue = normalizeBrandLabel(valueInput);
+    if (!input || !targetValue) return false;
+    const oldValue = normalizeBrandLabel(readProductUserfieldInputValue(input));
+    if (norm(oldValue) === norm(targetValue)) return false;
+
+    if (input.tagName && input.tagName.toLowerCase() === 'select') {
+      const options = Array.from(input.options || []);
+      const matched = options.find((option) => {
+        const optionValue = normalizeBrandLabel(option && option.value ? option.value : '');
+        const optionText = normalizeBrandLabel(option && option.textContent ? option.textContent : '');
+        return norm(optionValue) === norm(targetValue) || norm(optionText) === norm(targetValue);
+      });
+      if (matched) {
+        input.value = matched.value;
+      } else {
+        const created = new Option(targetValue, targetValue, true, true);
+        input.add(created);
+        input.value = targetValue;
+      }
+    } else {
+      input.value = targetValue;
+    }
+
+    input.classList.add('is-dirty');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  }
+
+  function parseBrandCandidateFromProductName(productNameInput = '') {
+    const productName = normalizeBrandLabel(productNameInput);
+    if (!productName) return '';
+    const parts = productName
+      .split(/\s*[-–—]\s*/)
+      .map((part) => normalizeBrandLabel(part))
+      .filter((part) => !!part);
+    if (!parts.length) return '';
+
+    const quantityPattern = /^\d+(?:[.,]\d+)?\s*(kg|g|mg|l|ml|cl|dl|x|pcs?|pi[eè]ce?s?|u|unit[eé]s?)\b/i;
+    const isQuantityLike = (partInput = '') => {
+      const part = normalizeBrandLabel(partInput);
+      if (!part) return false;
+      if (quantityPattern.test(part)) return true;
+      if (/^\d+(?:[.,]\d+)?$/.test(part)) return true;
+      if (/^\d+\s*[xX]\s*\d+/.test(part)) return true;
+      return false;
+    };
+
+    if (parts.length >= 3) {
+      const middle = parts.slice(1, parts.length - 1);
+      for (const candidate of middle) {
+        if (!isQuantityLike(candidate)) return candidate;
+      }
+    }
+    if (parts.length >= 2 && !isQuantityLike(parts[1])) {
+      return parts[1];
+    }
+    return '';
+  }
+
+  async function openBrandLinksManagePage() {
+    const entityId = await fetchBrandLinksUserentityId({ ensureCompatibility: true }).catch(() => 0);
+    const targetUrl = resolveUserentityUrl(entityId, 'Liens_marques');
+    if (targetUrl) window.location.href = targetUrl;
+  }
+
+  async function applyLinkedParentBrandFromSubBrand(optionsInput = {}) {
+    const options = optionsInput && typeof optionsInput === 'object' ? optionsInput : {};
+    const subInput = options.subInput && options.subInput.nodeType === 1
+      ? options.subInput
+      : productSubBrandUserfieldInput();
+    const brandInput = options.brandInput && options.brandInput.nodeType === 1
+      ? options.brandInput
+      : productBrandUserfieldInput();
+    if (!subInput || !brandInput) return { ok: false, reason: 'missing-input' };
+    const subRaw = readProductUserfieldInputValue(subInput);
+    const subCandidate = splitProductBrandValues(subRaw)[0] || '';
+    const subBrand = normalizeBrandLabel(subCandidate);
+    if (!subBrand) return { ok: false, reason: 'empty-sub' };
+    const index = await loadBrandLinkIndex({ force: options.force === true });
+    const entry = index.get(norm(subBrand));
+    if (!entry) {
+      if (options.report === true) {
+        pushProductStatusTerminal(
+          t('product_brand_link_missing', { sub: subBrand }),
+          'muted',
+          langText('Marques', 'Brands')
+        );
+      }
+      return { ok: false, reason: 'not-found', subBrand };
+    }
+    const parentOptions = Array.from(entry.parents.values());
+    if (entry.conflict || parentOptions.length > 1) {
+      if (options.report === true) {
+        pushProductStatusTerminal(
+          t('product_brand_link_conflict', { sub: subBrand, parents: parentOptions.join(', ') || t('default_na') }),
+          'warning',
+          langText('Marques', 'Brands')
+        );
+      }
+      return { ok: false, reason: 'conflict', subBrand, parents: parentOptions };
+    }
+    const parentBrand = normalizeBrandLabel(entry.parentBrand || parentOptions[0] || '');
+    if (!parentBrand) return { ok: false, reason: 'empty-parent', subBrand };
+    const changed = setProductUserfieldInputValue(brandInput, parentBrand);
+    if (changed && options.report === true) {
+      pushProductStatusTerminal(
+        t('product_brand_link_applied', { sub: subBrand, brand: parentBrand }),
+        'success',
+        langText('Marques', 'Brands')
+      );
+    }
+    return { ok: true, changed, subBrand, parentBrand };
+  }
+
+  function createInlineFieldActionButton(iconCssInput = '', titleInput = '') {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'btn btn-outline-secondary btn-sm grocy-off-btn-sm grocy-off-btn-icon ml-1';
+    button.innerHTML = `<i class="${escapeHtml(clean(iconCssInput || 'fa-solid fa-wand-magic-sparkles'))}"></i>`;
+    button.title = clean(titleInput || '');
+    button.setAttribute('aria-label', button.title);
+    return button;
+  }
+
+  function initProductBrandControls() {
+    if (!isProductFormPage()) return;
+    initOpenFoodFactsToolsStyle();
+    const brandMeta = productBrandUserfieldMeta();
+    const subBrandMeta = productSubBrandUserfieldMeta();
+    if (!brandMeta || !subBrandMeta) return;
+    const brandInput = brandMeta.input;
+    const subInput = subBrandMeta.input;
+    if (!brandInput || !subInput) return;
+
+    const brandLabel = brandMeta.group && brandMeta.group.querySelector ? brandMeta.group.querySelector('label') : null;
+    if (brandLabel && !brandLabel.querySelector('[data-product-brand-robot="1"]')) {
+      const robotButton = createInlineFieldActionButton('fa-solid fa-robot', t('product_brand_robot_title'));
+      robotButton.setAttribute('data-product-brand-robot', '1');
+      robotButton.addEventListener('click', async () => {
+        const productName = productNameFromMainForm();
+        if (!productName) {
+          pushProductStatusTerminal(t('product_brand_robot_name_missing'), 'danger', langText('Marques', 'Brands'));
+          return;
+        }
+        const candidate = parseBrandCandidateFromProductName(productName);
+        if (!candidate) {
+          pushProductStatusTerminal(t('product_brand_robot_parse_failed'), 'warning', langText('Marques', 'Brands'), [
+            `${langText('Nom produit', 'Product name')}: ${productName}`,
+          ]);
+          return;
+        }
+        pushProductStatusTerminal(t('product_brand_robot_detected', { brand: candidate }), 'info', langText('Marques', 'Brands'));
+        const entityId = await fetchMarquesUserentityId({ ensureCompatibility: true });
+        if (!(entityId > 0)) {
+          pushProductStatusTerminal(langText('Entité Marques introuvable.', 'Brands entity not found.'), 'danger', langText('Marques', 'Brands'));
+          return;
+        }
+        const existingMap = await fetchExistingMarquesNameMap('Marques', entityId);
+        const variants = brandNameVariants(candidate);
+        let resolved = '';
+        for (const variant of variants) {
+          const hit = existingMap.get(norm(variant));
+          if (hit) {
+            resolved = hit;
+            break;
+          }
+        }
+        if (resolved) {
+          setProductUserfieldInputValue(brandInput, resolved);
+          pushProductStatusTerminal(t('product_brand_robot_exists', { brand: resolved }), 'success', langText('Marques', 'Brands'));
+          return;
+        }
+        const confirmed = window.confirm(t('product_brand_robot_create_prompt', { brand: candidate }));
+        if (!confirmed) {
+          pushProductStatusTerminal(t('product_brand_robot_create_cancelled'), 'warning', langText('Marques', 'Brands'));
+          return;
+        }
+        await createMarquesObjectWithBrand('Marques', entityId, candidate);
+        setProductUserfieldInputValue(brandInput, candidate);
+        pushProductStatusTerminal(t('product_brand_robot_created', { brand: candidate }), 'success', langText('Marques', 'Brands'));
+      });
+      brandLabel.appendChild(robotButton);
+    }
+    if (brandLabel && !brandLabel.querySelector('[data-product-brand-links-main="1"]')) {
+      const linksMainButton = createInlineFieldActionButton('fa-solid fa-link', t('product_brand_manage_links_title'));
+      linksMainButton.setAttribute('data-product-brand-links-main', '1');
+      linksMainButton.addEventListener('click', () => {
+        openBrandLinksManagePage().catch(() => null);
+      });
+      brandLabel.appendChild(linksMainButton);
+    }
+
+    const subLabel = subBrandMeta.group && subBrandMeta.group.querySelector ? subBrandMeta.group.querySelector('label') : null;
+    if (subLabel && !subLabel.querySelector('[data-product-brand-links="1"]')) {
+      const linksButton = createInlineFieldActionButton('fa-solid fa-link', t('product_brand_manage_links_title'));
+      linksButton.setAttribute('data-product-brand-links', '1');
+      linksButton.addEventListener('click', () => {
+        openBrandLinksManagePage().catch(() => null);
+      });
+      subLabel.appendChild(linksButton);
+    }
+
+    if (subInput.dataset.productBrandLinkBound !== '1') {
+      subInput.dataset.productBrandLinkBound = '1';
+      let timer = null;
+      const queueApply = () => {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => {
+          timer = null;
+          applyLinkedParentBrandFromSubBrand({
+            subInput,
+            brandInput,
+            report: true,
+          }).catch(() => null);
+        }, 120);
+      };
+      subInput.addEventListener('input', queueApply);
+      subInput.addEventListener('change', queueApply);
+    }
   }
 
   function isParentUserfieldMeta(meta) {
@@ -27560,7 +28797,7 @@
     } catch (_err) {}
   }
 
-  async function lookupBestBarcodeForProductName(productNameInput, settingsInput = null) {
+  async function lookupBestBarcodeForProductName(productNameInput, settingsInput = null, optionsInput = null) {
     const productName = clean(productNameInput || '');
     if (!productName) {
       throw new Error(langText('Nom du produit introuvable.', 'Product name not found.'));
@@ -27569,7 +28806,7 @@
     if (settings.enabled !== true) {
       throw new Error(t('facts_provider_disabled'));
     }
-    const lookup = await fetchBarcodeLookupProductsByNameWithFallback(productName, settings);
+    const lookup = await fetchBarcodeLookupProductsByNameWithFallback(productName, settings, optionsInput);
     const best = bestBarcodeLookupMatch(lookup.products, productName, lookup.provider);
     if (!best) {
       const attempted = Array.isArray(lookup.attemptedProviders) && lookup.attemptedProviders.length > 0
@@ -27595,7 +28832,7 @@
     for (let i = 0; i < variants.length; i += 1) {
       const currentName = variants[i];
       try {
-        const result = await lookupBestBarcodeForProductName(currentName, settings);
+        const result = await lookupBestBarcodeForProductName(currentName, settings, options);
         return { ...result, usedName: currentName, triedNames: variants.slice(0, i + 1) };
       } catch (error) {
         const msg = clean(error && error.message ? error.message : String(error)) || t('focus_unknown_error');
@@ -27612,6 +28849,56 @@
       'Aucun résultat après simplification progressive du nom.',
       'No result after progressive product name simplification.'
     ));
+  }
+
+  async function lookupBestBarcodeWithAutoStrategy(productNameInput, settingsInput = null, optionsInput = {}) {
+    const productName = clean(productNameInput || '');
+    if (!productName) {
+      throw new Error(langText('Nom du produit introuvable.', 'Product name not found.'));
+    }
+    const settings = normalizeBarcodeLookupSettings(settingsInput || barcodeLookupSettings());
+    const options = optionsInput && typeof optionsInput === 'object' ? optionsInput : {};
+    const runCache = options.runCache instanceof Map ? options.runCache : new Map();
+    const limit = Math.max(4, Math.min(40, num(options.limit) || 14));
+    const errors = [];
+
+    try {
+      const alternative = await lookupBestBarcodeForProductNameFallbackChain(productName, settings, { limit, runCache });
+      const attemptedProviders = Array.isArray(alternative.attemptedProviders) ? alternative.attemptedProviders : [];
+      const productsCount = Array.isArray(alternative?.lookup?.products) ? alternative.lookup.products.length : 0;
+      return {
+        ...alternative,
+        modeUsed: 'alternative',
+        usedName: clean(alternative.usedName || productName),
+        attemptedProviders,
+        productsCount,
+        errors,
+      };
+    } catch (error) {
+      const message = clean(error && error.message ? error.message : String(error)) || t('focus_unknown_error');
+      errors.push(message);
+      if (!isLookupNotFoundMessage(message) && !isFactsProductTypeMismatchDetail(message)) {
+        throw new Error(message);
+      }
+    }
+
+    try {
+      const normal = await lookupBestBarcodeForProductName(productName, settings, { runCache });
+      const attemptedProviders = Array.isArray(normal.attemptedProviders) ? normal.attemptedProviders : [];
+      const productsCount = Array.isArray(normal?.lookup?.products) ? normal.lookup.products.length : 0;
+      return {
+        ...normal,
+        modeUsed: 'normal',
+        usedName: productName,
+        attemptedProviders,
+        productsCount,
+        errors,
+      };
+    } catch (error) {
+      const message = clean(error && error.message ? error.message : String(error)) || t('focus_unknown_error');
+      errors.push(message);
+      throw new Error(message);
+    }
   }
 
   function openNewTab(url) {
@@ -28032,6 +29319,7 @@
         let shouldReload = false;
         let finalError = '';
         let usedName = '';
+        let modeUsed = '';
         let bestName = '';
         let bestCode = '';
         let bestBrand = '';
@@ -28055,8 +29343,10 @@
           ]
         );
         try {
-          const lookup = await lookupBestBarcodeForProductNameFallbackChain(productName, settings, { limit: 14 });
+          const runCache = new Map();
+          const lookup = await lookupBestBarcodeWithAutoStrategy(productName, settings, { limit: 14, runCache });
           const { best } = lookup;
+          modeUsed = clean(lookup.modeUsed || '');
           usedName = clean(lookup.usedName || '');
           bestName = clean(best && best.name ? best.name : '');
           bestCode = clean(best && best.code ? best.code : '');
@@ -28104,6 +29394,9 @@
               `${langText('Marque', 'Brand')}: ${bestBrand || t('default_na')}`,
               `${langText('Poids/quantité', 'Weight/quantity')}: ${bestQuantity || t('default_na')}`,
               `${langText('Source', 'Source')}: ${sourceProviderLabel || t('default_na')}`,
+              `${langText('Mode', 'Mode')}: ${modeUsed === 'normal'
+                ? langText('Alternative -> fallback normal (succès normal)', 'Alternative -> normal fallback (normal success)')
+                : langText('Alternative -> fallback normal (succès alternative)', 'Alternative -> normal fallback (alternative success)')}`,
               `${langText('Fournisseurs tentés', 'Attempted providers')}: ${(attemptedProviders.map((id) => barcodeLookupProviderLabel(id)).join(' -> ') || t('default_na'))}`,
             ]
           );
@@ -28124,8 +29417,12 @@
             `${langText('Produit', 'Product')}: ${productName}`,
             `${langText('ID produit', 'Product ID')}: ${productId}`,
             `${langText('Mode', 'Mode')}: ${langText('Recherche avancée auto', 'Automatic advanced lookup')}`,
+            `${langText('Stratégie', 'Strategy')}: ${langText('Alternative -> fallback normal', 'Alternative -> normal fallback')}`,
             `${langText('Unité appliquée', 'Applied unit')}: ${purchaseUnitName} (#${purchaseUnitId})`,
             `${langText('Nom simplifié', 'Simplified name')}: ${usedName || t('default_na')}`,
+            `${langText('Mode utilisé', 'Mode used')}: ${modeUsed === 'normal'
+              ? langText('fallback normal', 'normal fallback')
+              : (modeUsed === 'alternative' ? langText('alternative', 'alternative') : t('default_na'))}`,
             `${langText('Code trouvé', 'Found barcode')}: ${bestCode || t('default_na')}`,
             `${langText('Nom source', 'Source name')}: ${bestName || t('default_na')}`,
             `${langText('Marque', 'Brand')}: ${bestBrand || t('default_na')}`,
@@ -28266,12 +29563,54 @@
     return `https://${host}/cgi/search.pl?${params.toString()}`;
   }
 
-  async function fetchBarcodeLookupProductsByName(productName, providerIdInput = '') {
+  function barcodeLookupSessionCacheKey(providerIdInput = '', productNameInput = '') {
+    const providerId = normalizeBarcodeLookupProvider(providerIdInput || '');
+    const productName = clean(productNameInput || '');
+    return `${providerId}|${norm(productName)}`;
+  }
+
+  function cloneBarcodeLookupResult(resultInput = null) {
+    const result = resultInput && typeof resultInput === 'object' ? resultInput : {};
+    return {
+      products: Array.isArray(result.products) ? [...result.products] : [],
+      provider: normalizeBarcodeLookupProvider(result.provider || ''),
+      providerLabel: clean(result.providerLabel || ''),
+      via: clean(result.via || ''),
+      _softNotFound: result._softNotFound === true,
+    };
+  }
+
+  async function fetchBarcodeLookupProductsByName(productName, providerIdInput = '', optionsInput = null) {
+    const options = optionsInput && typeof optionsInput === 'object' ? optionsInput : {};
+    const runCache = options.runCache instanceof Map ? options.runCache : null;
     const selected = normalizeBarcodeLookupProvider(providerIdInput || barcodeLookupProviderFromSettings());
     const providerLabel = barcodeLookupProviderLabel(selected);
     const url = buildBarcodeLookupSearchApiUrl(selected, productName);
     if (!url) {
       throw new Error(langText('Fournisseur code-barres invalide.', 'Invalid barcode provider.'));
+    }
+    const cacheKey = barcodeLookupSessionCacheKey(selected, productName);
+    if (runCache && cacheKey && runCache.has(cacheKey)) {
+      return cloneBarcodeLookupResult(runCache.get(cacheKey));
+    }
+
+    const canUseRuntime = !!(
+      NERDCORE
+      && typeof NERDCORE.runtimeBarcodeSearch === 'function'
+      && typeof NERDCORE.isServerOffloadEnabled === 'function'
+      && NERDCORE.isServerOffloadEnabled() === true
+    );
+    if (canUseRuntime) {
+      try {
+        const runtimePayload = await NERDCORE.runtimeBarcodeSearch(productName, selected, { pageSize: 24 });
+        const runtimeData = runtimePayload && runtimePayload.payload ? runtimePayload.payload : {};
+        const products = Array.isArray(runtimeData && runtimeData.products) ? runtimeData.products : [];
+        const result = { products, provider: selected, providerLabel, via: 'nerdcore-runtime' };
+        if (runCache && cacheKey) runCache.set(cacheKey, cloneBarcodeLookupResult(result));
+        return result;
+      } catch (_runtimeErr) {
+        // Soft fallback to direct client fetch.
+      }
     }
 
     const controller = new AbortController();
@@ -28300,13 +29639,17 @@
           }
         } catch (_bodyErr) {}
         if (response.status === 404 && isFactsProductTypeMismatchDetail(detail)) {
-          return { products: [], provider: selected, providerLabel, _softNotFound: true };
+          const softResult = { products: [], provider: selected, providerLabel, _softNotFound: true };
+          if (runCache && cacheKey) runCache.set(cacheKey, cloneBarcodeLookupResult(softResult));
+          return softResult;
         }
         throw new Error(`${providerLabel}: HTTP ${response.status}${detail ? ` - ${detail}` : ''}`);
       }
       const payload = await response.json().catch(() => ({}));
       const products = Array.isArray(payload && payload.products) ? payload.products : [];
-      return { products, provider: selected, providerLabel };
+      const result = { products, provider: selected, providerLabel };
+      if (runCache && cacheKey) runCache.set(cacheKey, cloneBarcodeLookupResult(result));
+      return result;
     } catch (error) {
       if (error && (error.name === 'AbortError' || /aborted/i.test(clean(error.message || '')))) {
         throw new Error(`${providerLabel}: ${langText('timeout (18s)', 'timeout (18s)')}`);
@@ -28318,8 +29661,9 @@
     }
   }
 
-  async function fetchBarcodeLookupProductsByNameWithFallback(productName, settingsInput = null) {
+  async function fetchBarcodeLookupProductsByNameWithFallback(productName, settingsInput = null, optionsInput = null) {
     const settings = normalizeBarcodeLookupSettings(settingsInput || barcodeLookupSettings());
+    const options = optionsInput && typeof optionsInput === 'object' ? optionsInput : {};
     if (settings.enabled !== true) {
       throw new Error(t('facts_provider_disabled'));
     }
@@ -28329,7 +29673,7 @@
     for (let i = 0; i < order.length; i += 1) {
       const providerId = order[i];
       try {
-        const result = await fetchBarcodeLookupProductsByName(productName, providerId);
+        const result = await fetchBarcodeLookupProductsByName(productName, providerId, options);
         lastResult = result;
         const products = Array.isArray(result.products) ? result.products : [];
         if (products.length > 0) {
@@ -28548,6 +29892,7 @@
       let foundCode = '';
       let foundName = '';
       let usedName = '';
+      let modeUsed = '';
       let attemptedProviders = [];
       let matchedProductsCount = 0;
       canRetryWithNameFallback = false;
@@ -28560,29 +29905,26 @@
         'info',
         [
           `${langText('Produit', 'Product')}: ${productName}`,
-          `${langText('Mode', 'Mode')}: ${useFallbackChain ? langText('Relance simplifiée', 'Simplified retry') : langText('Standard', 'Standard')}`,
+          `${langText('Mode', 'Mode')}: ${langText('Alternative -> fallback normal', 'Alternative -> normal fallback')}`,
           `${langText('Auto', 'Auto')}: ${autoRun ? 'ON' : 'OFF'}`,
           `${langText('Chaîne fournisseurs', 'Provider chain')}: ${orderLabel || t('default_na')}`,
         ]
       );
 
       try {
-        const lookup = useFallbackChain
-          ? await lookupBestBarcodeForProductNameFallbackChain(productName, settings, { limit: 14 })
-          : await fetchBarcodeLookupProductsByNameWithFallback(productName, settings);
-        matchedProductsCount = Array.isArray(lookup && lookup.products) ? lookup.products.length : 0;
+        const runCache = new Map();
+        const lookup = await lookupBestBarcodeWithAutoStrategy(productName, settings, { limit: 14, runCache });
+        matchedProductsCount = Math.max(0, num(lookup.productsCount));
         attemptedProviders = Array.isArray(lookup.attemptedProviders) && lookup.attemptedProviders.length > 0
           ? lookup.attemptedProviders
           : [];
-        const best = useFallbackChain
-          ? lookup.best
-          : bestBarcodeLookupMatch(lookup.products, productName, lookup.provider);
+        const best = lookup.best;
+        modeUsed = clean(lookup.modeUsed || '');
         usedName = clean(lookup.usedName || '');
         if (!best) {
           const attempted = Array.isArray(lookup.attemptedProviders) && lookup.attemptedProviders.length > 0
             ? lookup.attemptedProviders.map((providerId) => barcodeLookupProviderLabel(providerId)).join(' -> ')
             : lookup.providerLabel;
-          if (!useFallbackChain) canRetryWithNameFallback = true;
           finalError = langText(`Aucun code-barres fiable trouvé via ${attempted}.`, `No reliable barcode found via ${attempted}.`);
           setBarcodeAutofillStatus(
             status,
@@ -28607,14 +29949,14 @@
         canRetryWithNameFallback = false;
         setBarcodeAutofillStatus(
           status,
-          langText(`Code-barres trouvé via ${attempted}: ${best.code} (${foundName}).${note}`, `Barcode found via ${attempted}: ${best.code} (${foundName}).${note}`),
+          langText(
+            `Code-barres trouvé via ${attempted}: ${best.code} (${foundName}).${note}${modeUsed === 'normal' ? ' | fallback normal' : ' | alternative'}`,
+            `Barcode found via ${attempted}: ${best.code} (${foundName}).${note}${modeUsed === 'normal' ? ' | normal fallback' : ' | alternative'}`
+          ),
           'success'
         );
       } catch (error) {
         const msg = clean(error && error.message ? error.message : String(error));
-        if (!useFallbackChain && isLookupNotFoundMessage(msg)) {
-          canRetryWithNameFallback = true;
-        }
         finalError = msg || langText('erreur inconnue', 'unknown error');
         setBarcodeAutofillStatus(
           status,
@@ -28624,7 +29966,10 @@
       } finally {
         const detailLines = [
           `${langText('Produit', 'Product')}: ${productName}`,
-          `${langText('Mode', 'Mode')}: ${useFallbackChain ? langText('Relance simplifiée', 'Simplified retry') : langText('Standard', 'Standard')}`,
+          `${langText('Mode', 'Mode')}: ${langText('Alternative -> fallback normal', 'Alternative -> normal fallback')}`,
+          `${langText('Mode utilisé', 'Mode used')}: ${modeUsed === 'normal'
+            ? langText('fallback normal', 'normal fallback')
+            : (modeUsed === 'alternative' ? langText('alternative', 'alternative') : t('default_na'))}`,
           `${langText('Auto', 'Auto')}: ${autoRun ? 'ON' : 'OFF'}`,
           `${langText('Code trouvé', 'Found barcode')}: ${foundCode || t('default_na')}`,
           `${langText('Nom source', 'Source name')}: ${foundName || t('default_na')}`,
@@ -28924,6 +30269,7 @@
   function initProductOpenFoodFactsEnhancements() {
     patchUserfieldsFormSaveForProductForm();
     initProductFormTypeRules();
+    initProductBrandControls();
     initProductEnergyVisibilityGuard();
     initProductEnergyRobotButton();
     initProductBarcodesHeaderButtons();
@@ -28931,6 +30277,7 @@
     initProductSpecificConversionFractionObserver();
     initBarcodeAutofillButtons(document);
     initBarcodeAutofillObserver();
+    applyLinkedParentBrandFromSubBrand({ report: false }).catch(() => null);
     if (typeof S.productFormTypeRulesRefresh === 'function') {
       try { S.productFormTypeRulesRefresh(); } catch (_err) {}
     }
@@ -28953,6 +30300,12 @@
     safeRun('loadBarcodeAutofillUiSettings', () => loadBarcodeAutofillUiSettings());
     safeRun('loadPhotoSearchSettings', () => loadPhotoSearchSettings());
     safeRun('loadPhotoSearchProgress', () => loadPhotoSearchProgress());
+    safeRun('scheduleEnsureManageDataBrandEntry', () => scheduleEnsureManageDataBrandEntry(140));
+    safeRun('initManageDataBrandEntryObserver', () => initManageDataBrandEntryObserver());
+    safeRun('runInitialBrandLinkMigration', () => {
+      if (hasInitialBrandLinkMigrationFlag()) return null;
+      return runInitialBrandLinkMigration({ force: false });
+    });
 
     if (safeRun('renderProductHelperSettingsPage', () => renderProductHelperSettingsPage()) === true) {
       return;

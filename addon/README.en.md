@@ -6,6 +6,13 @@ Requires NerdCore before install.
 ## Contents
 
 - `dist/custom_js.html`: product-helper frontend payload.
+- Barcode robot lookup now uses alternative-first strategy, then normal fallback.
+- Native `Brand` + `Brand links` modules in Grocy "Manage data":
+  - `Marques` (`Marque`, `logo_marque`)
+  - `Liens_marques` (`Marque_parente`, `Sous_marque`, `Actif`)
+- Product form:
+  - `Brand robot` button (extracts brand from `name - brand - quantity`),
+  - automatic `Sub-brand -> Brand` fill from active links.
 - `scripts/install.*`: local install.
 - `scripts/uninstall.*`: rollback.
 - `scripts/update-from-github.*`: update from GitHub releases.
