@@ -1,5 +1,11 @@
 # Changelog
 
+## [4.0.2] - 2026-02-20
+
+### Fixed
+- Removed heavy overlay MutationObserver re-apply loop on ProductHelper settings page.
+- Overlay visibility is now enforced once without persistent observers, preventing browser freeze on `/stocksettings?producthelper=1`.
+
 ## [4.0.1] - 2026-02-20
 
 ### Fixed

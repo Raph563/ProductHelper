@@ -10,7 +10,7 @@
   NERDCORE.registerAddon({
     id: 'producthelper',
     name: 'ProductHelper',
-    version: '4.0.1',
+    version: '4.0.2',
     settingsSection: 'producthelper',
     settingsTitle: 'ProductHelper',
     settingsIcon: 'fa-box-open',
@@ -756,7 +756,7 @@
   const USER_DATA_TRANSFER_SCHEMA_VERSION = 1;
   const USER_DATA_TRANSFER_STORAGE_PREFIX = 'grocy_dash_';
   const PRODUCTHELPER_BRAND_LINK_MIGRATION_KEY = 'grocy_dash_producthelper_brand_link_migration_v1';
-  const ADDON_RUNTIME_VERSION = '4.0.1';
+  const ADDON_RUNTIME_VERSION = '4.0.2';
   const ADDON_UPDATE_DEFAULT_REPOSITORY = 'Raph563/ProductHelper';
   const ADDON_UPDATE_DEFAULT_LOCAL_ROOT = 'C:\\Users\\Admin\\Documents\\Docker\\grocy';
   const ADDON_UPDATE_RELAY_BASE_URL = (NERDCORE && typeof NERDCORE.getUpdateApiBase === 'function')
@@ -10895,53 +10895,8 @@
 
     S.aiSettingsOverlayNode = overlay;
     enforceAiSettingsOverlayVisibility(overlay);
-    if (!window.MutationObserver || S.aiSettingsOverlayObserver) return;
-
-    S.aiSettingsOverlayObserver = new MutationObserver(() => {
-      const current = document.getElementById('dash_ai_settings_overlay');
-      if (!current || current.getAttribute('data-dash-overlay-force-visible') !== '1') {
-        disconnectAiSettingsOverlayObserver();
-        return;
-      }
-      if (S.aiSettingsOverlayGuardApplying === true) return;
-      S.aiSettingsOverlayGuardApplying = true;
-      try {
-        enforceAiSettingsOverlayVisibility(current);
-      } finally {
-        S.aiSettingsOverlayGuardApplying = false;
-      }
-    });
-
-    try {
-      S.aiSettingsOverlayObserver.observe(overlay, {
-        attributes: true,
-        attributeFilter: ['class', 'style'],
-      });
-    } catch (_err) {
-      disconnectAiSettingsOverlayObserver();
-    }
-
-    if (!document.body || S.aiSettingsOverlayRootObserver) return;
-    S.aiSettingsOverlayRootObserver = new MutationObserver(() => {
-      const current = document.getElementById('dash_ai_settings_overlay');
-      if (current) {
-        if (current.getAttribute('data-dash-overlay-force-visible') === '1') {
-          enforceAiSettingsOverlayVisibility(current);
-        }
-        return;
-      }
-      const saved = S.aiSettingsOverlayNode;
-      if (!saved || saved.getAttribute('data-dash-overlay-force-visible') !== '1') return;
-      if (!document.body || !saved.isConnected) {
-        try { document.body.appendChild(saved); } catch (_err) { return; }
-      }
-      enforceAiSettingsOverlayVisibility(saved);
-    });
-    try {
-      S.aiSettingsOverlayRootObserver.observe(document.body, { childList: true, subtree: true });
-    } catch (_err) {
-      disconnectAiSettingsOverlayRootObserver();
-    }
+    disconnectAiSettingsOverlayObserver();
+    disconnectAiSettingsOverlayRootObserver();
   }
 
   function closeAiSettingsOverlay() {
