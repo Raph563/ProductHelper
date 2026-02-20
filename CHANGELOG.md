@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.0.1] - 2026-02-20
+
+### Fixed
+- Hardened legacy-settings compatibility for ProductHelper settings overlay:
+  - keeps overlay visible while open even if external scripts toggle classes/styles;
+  - restores overlay if removed from DOM by external "hide legacy addon UI" logic.
+
 ## [4.0.0] - 2026-02-20
 
 ### Added
