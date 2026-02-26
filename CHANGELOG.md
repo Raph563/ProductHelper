@@ -1,5 +1,21 @@
 # Changelog
 
+## [4.0.3] - 2026-02-26
+
+### Added
+- Product quantity-unit conversion presets now save directly to database on click (no manual form submit needed).
+- Added readable fraction rendering in product conversion list (1/6, 1/3) when value approximates a simple fraction.
+
+### Changed
+- Preset buttons are disabled until conversion context is valid (from, to, product, and from != to).
+- Product edit header layout updated: OFF/OPF/Google/retry actions moved to the right of the title; robot action remains in barcode section.
+- Active checkbox is now mirrored near the product title without label text (synced with original field).
+- Robot card now displays direct source page link (OFF/OPF) inside card metadata.
+- Conversion factor up/down controls are styled inside factor input area in embedded conversion form.
+
+### Fixed
+- Parent conversion table now updates in place after preset save (no full parent page reload).
+
 ## [4.0.2] - 2026-02-20
 
 ### Fixed
@@ -89,5 +105,8 @@
 - OFF/OPF barcode lookup and guided barcode creation.
 - Product-form helpers including conversion fraction support.
 - Parent product sync safeguards and product status terminal.
+
+
+
 
 
