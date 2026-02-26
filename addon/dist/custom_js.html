@@ -3558,6 +3558,66 @@
     return { numerator, denominator, value };
   }
 
+  function integerGcd(aInput, bInput) {
+    let a = Math.abs(Math.trunc(num(aInput)));
+    let b = Math.abs(Math.trunc(num(bInput)));
+    if (!(a > 0)) return b > 0 ? b : 1;
+    if (!(b > 0)) return a;
+    while (b !== 0) {
+      const temp = b;
+      b = a % b;
+      a = temp;
+    }
+    return a > 0 ? a : 1;
+  }
+
+  function approximateFractionFromDecimal(valueInput, maxDenominatorInput = 12, toleranceInput = 0.001) {
+    const value = num(valueInput);
+    const maxDenominator = Math.max(1, Math.min(200, Math.trunc(num(maxDenominatorInput) || 12)));
+    const tolerance = Math.max(0.0000001, Math.min(0.2, num(toleranceInput) || 0.001));
+    if (!(Number.isFinite(value) && value > 0)) return null;
+    let best = null;
+    for (let denominator = 1; denominator <= maxDenominator; denominator += 1) {
+      const numeratorRaw = Math.round(value * denominator);
+      if (!(numeratorRaw > 0)) continue;
+      const gcd = integerGcd(numeratorRaw, denominator);
+      const numerator = numeratorRaw / gcd;
+      const reducedDenominator = denominator / gcd;
+      const approx = numerator / reducedDenominator;
+      const diff = Math.abs(approx - value);
+      if (diff > tolerance) continue;
+      const candidate = {
+        numerator,
+        denominator: reducedDenominator,
+        value: approx,
+        diff,
+      };
+      if (!best) {
+        best = candidate;
+        continue;
+      }
+      if (candidate.diff < best.diff - 0.000000001) {
+        best = candidate;
+        continue;
+      }
+      if (Math.abs(candidate.diff - best.diff) <= 0.000000001 && candidate.denominator < best.denominator) {
+        best = candidate;
+      }
+    }
+    return best;
+  }
+
+  function formatFractionLabel(valueInput, optionsInput = null) {
+    const options = optionsInput && typeof optionsInput === 'object' ? optionsInput : {};
+    const maxDenominator = Math.max(1, Math.trunc(num(options.maxDenominator) || 12));
+    const tolerance = Math.max(0.0000001, num(options.tolerance) || 0.001);
+    const allowDenominatorOne = options.allowDenominatorOne === true;
+    const approx = approximateFractionFromDecimal(valueInput, maxDenominator, tolerance);
+    if (!approx) return '';
+    if (!allowDenominatorOne && approx.denominator <= 1) return '';
+    return `${approx.numerator}/${approx.denominator}`;
+  }
+
   const fmt = (v, d = 2) => (Number.isFinite(v) ? v : 0).toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
   const fmtMoney = (v, d = 2) => `${fmt(v, d)} €`;
   const currencySymbolForUi = () => (resolveUiLanguage() === 'en' ? '$' : '€');
@@ -10895,8 +10955,53 @@
 
     S.aiSettingsOverlayNode = overlay;
     enforceAiSettingsOverlayVisibility(overlay);
-    disconnectAiSettingsOverlayObserver();
-    disconnectAiSettingsOverlayRootObserver();
+    if (!window.MutationObserver || S.aiSettingsOverlayObserver) return;
+
+    S.aiSettingsOverlayObserver = new MutationObserver(() => {
+      const current = document.getElementById('dash_ai_settings_overlay');
+      if (!current || current.getAttribute('data-dash-overlay-force-visible') !== '1') {
+        disconnectAiSettingsOverlayObserver();
+        return;
+      }
+      if (S.aiSettingsOverlayGuardApplying === true) return;
+      S.aiSettingsOverlayGuardApplying = true;
+      try {
+        enforceAiSettingsOverlayVisibility(current);
+      } finally {
+        S.aiSettingsOverlayGuardApplying = false;
+      }
+    });
+
+    try {
+      S.aiSettingsOverlayObserver.observe(overlay, {
+        attributes: true,
+        attributeFilter: ['class', 'style'],
+      });
+    } catch (_err) {
+      disconnectAiSettingsOverlayObserver();
+    }
+
+    if (!document.body || S.aiSettingsOverlayRootObserver) return;
+    S.aiSettingsOverlayRootObserver = new MutationObserver(() => {
+      const current = document.getElementById('dash_ai_settings_overlay');
+      if (current) {
+        if (current.getAttribute('data-dash-overlay-force-visible') === '1') {
+          enforceAiSettingsOverlayVisibility(current);
+        }
+        return;
+      }
+      const saved = S.aiSettingsOverlayNode;
+      if (!saved || saved.getAttribute('data-dash-overlay-force-visible') !== '1') return;
+      if (!document.body || !saved.isConnected) {
+        try { document.body.appendChild(saved); } catch (_err) { return; }
+      }
+      enforceAiSettingsOverlayVisibility(saved);
+    });
+    try {
+      S.aiSettingsOverlayRootObserver.observe(document.body, { childList: true, subtree: true });
+    } catch (_err) {
+      disconnectAiSettingsOverlayRootObserver();
+    }
   }
 
   function closeAiSettingsOverlay() {
@@ -23534,6 +23639,24 @@
     return /\/product\/(new|\d+)\/?$/.test(path);
   }
 
+  function isProductQuantityConversionFormPage() {
+    const path = clean(window.location.pathname);
+    if (!/\/quantityunitconversion\/(new|\d+)\/?$/.test(path)) return false;
+    try {
+      const search = clean(window.location.search || '');
+      if (search) {
+        const params = new URLSearchParams(search);
+        const productParam = clean(params.get('product') || '');
+        if (productParam) return true;
+      }
+    } catch (_err) {}
+    return !!document.querySelector('input[name="product_id"], input[id*="product_id"], select[name="product_id"], select[id*="product_id"]');
+  }
+
+  function isProductConversionFractionHostPage() {
+    return isProductFormPage() || isProductQuantityConversionFormPage();
+  }
+
   function isStatusTerminalHostPage() {
     if (isProductFormPage()) return true;
     return !!document.getElementById('stock-overview-table');
@@ -25865,6 +25988,51 @@
         margin-left: 0.55rem;
         vertical-align: middle;
       }
+      .grocy-product-title-wrap {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.45rem;
+      }
+      .grocy-product-title-head {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        margin-right: auto;
+        min-width: 0;
+      }
+      .grocy-product-title-head .title {
+        margin: 0;
+        white-space: nowrap;
+      }
+      .grocy-product-title-helper-actions {
+        display: inline-flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        margin-left: auto;
+      }
+      .grocy-product-title-active-proxy {
+        display: inline-flex;
+        align-items: center;
+        margin: 0;
+      }
+      .grocy-product-title-active-proxy .custom-control-label::before,
+      .grocy-product-title-active-proxy .custom-control-label::after {
+        top: 0.02rem;
+      }
+      .grocy-product-title-active-proxy .custom-control-label {
+        min-height: 1rem;
+        margin: 0;
+        padding-left: 0;
+      }
+      .grocy-product-title-active-proxy .custom-control-label:empty::before,
+      .grocy-product-title-active-proxy .custom-control-label:empty::after {
+        margin-left: 0;
+      }
+      .grocy-title-active-source-hidden {
+        display: none !important;
+      }
       .grocy-off-heading-status {
         display: block;
         margin-top: 0.38rem;
@@ -25914,8 +26082,68 @@
       .grocy-product-conversion-fraction-wrap {
         margin-top: 0.4rem;
       }
+      .grocy-product-conversion-fraction-wrap .grocy-product-conversion-fraction-presets {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+      }
+      .grocy-product-conversion-fraction-wrap .grocy-product-conversion-fraction-presets .btn {
+        min-width: 2.5rem;
+        padding: 0.12rem 0.46rem;
+        line-height: 1.2;
+      }
+      .grocy-product-conversion-fraction-wrap .grocy-product-conversion-fraction-presets .btn.is-active {
+        border-color: rgba(40, 167, 69, 0.82);
+        color: #1f8f44;
+        background: rgba(40, 167, 69, 0.14);
+      }
       .grocy-product-conversion-fraction-wrap .grocy-product-conversion-fraction-status {
         margin-top: 0.2rem;
+      }
+      .grocy-product-conversion-fraction-wrap.is-disabled .grocy-product-conversion-fraction-presets .btn {
+        pointer-events: none;
+        opacity: 0.62;
+      }
+      #group-factor .input-group {
+        position: relative;
+        display: block;
+      }
+      #group-factor .input-group > input[name="factor"],
+      #group-factor .input-group > input#factor {
+        width: 100%;
+        border-radius: 0.25rem;
+        padding-right: 3.9rem;
+      }
+      #group-factor .input-group > .input-group-append {
+        position: absolute;
+        top: 1px;
+        bottom: 1px;
+        z-index: 5;
+      }
+      #group-factor .input-group > .input-group-append:nth-of-type(1) {
+        right: 1.9rem;
+      }
+      #group-factor .input-group > .input-group-append:nth-of-type(2) {
+        right: 1px;
+      }
+      #group-factor .input-group > .input-group-append .input-group-text {
+        min-width: 1.85rem;
+        border-radius: 0;
+        border: 0;
+        border-left: 1px solid rgba(255, 255, 255, 0.18);
+        background: rgba(255, 255, 255, 0.04);
+        cursor: pointer;
+      }
+      #group-factor .input-group > .input-group-append:nth-of-type(2) .input-group-text {
+        border-top-right-radius: 0.24rem;
+        border-bottom-right-radius: 0.24rem;
+      }
+      #group-factor .input-group > .invalid-feedback {
+        width: 100%;
+      }
+      .grocy-conversion-fraction-display {
+        display: inline-block;
+        letter-spacing: 0.01em;
       }
       .grocy-off-btn-sm {
         min-width: 2rem;
@@ -25997,6 +26225,14 @@
         object-fit: contain;
         border-radius: 0.15rem;
         filter: grayscale(100%) brightness(1.05);
+      }
+      @media (max-width: 991px) {
+        .grocy-product-title-head .title {
+          white-space: normal;
+        }
+        .grocy-product-title-helper-actions {
+          margin-left: 0;
+        }
       }
       .grocy-facts-photo-results {
         display: grid;
@@ -27960,6 +28196,210 @@
     return table.closest('.row');
   }
 
+  function productMainTitleWrap() {
+    const wraps = Array.from(document.querySelectorAll('.title-related-links'));
+    for (const wrap of wraps) {
+      const heading = wrap.querySelector('h2.title');
+      if (heading) return wrap;
+    }
+    return null;
+  }
+
+  function productConversionDisplayMaxDecimals() {
+    const fromSettings = num(window?.Grocy?.UserSettings?.stock_decimal_places_amounts);
+    if (fromSettings >= 0) return Math.max(2, Math.min(8, Math.trunc(fromSettings)));
+    return 4;
+  }
+
+  function formatProductConversionDecimal(valueInput, maxDecimalsInput = null) {
+    const value = num(valueInput);
+    const maxDecimals = maxDecimalsInput === null
+      ? productConversionDisplayMaxDecimals()
+      : Math.max(0, Math.min(12, Math.trunc(num(maxDecimalsInput) || 0)));
+    return (Number.isFinite(value) ? value : 0).toLocaleString(undefined, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: maxDecimals,
+    });
+  }
+
+  function productConversionFactorDisplayHtml(valueInput) {
+    const value = num(valueInput);
+    if (!(Number.isFinite(value) && value > 0)) return '';
+    const fraction = formatFractionLabel(value, {
+      maxDenominator: 12,
+      tolerance: 0.001,
+      allowDenominatorOne: false,
+    });
+    if (fraction) {
+      return `<span class="grocy-conversion-fraction-display" data-grocy-factor-decimal="${escapeHtml(String(value))}" title="${escapeHtml(formatProductConversionDecimal(value, 6))}">${escapeHtml(fraction)}</span>`;
+    }
+    return `<span class="locale-number locale-number-quantity-amount" data-grocy-factor-decimal="${escapeHtml(String(value))}">${escapeHtml(formatProductConversionDecimal(value))}</span>`;
+  }
+
+  function productConversionActionCellHtml(conversionIdInput, productIdInput) {
+    const conversionId = num(conversionIdInput);
+    if (!(conversionId > 0)) return '';
+    const productId = num(productIdInput);
+    const query = productId > 0
+      ? `?embedded&product=${encodeURIComponent(String(productId))}`
+      : '?embedded';
+    const href = new URL(`${apiBaseUrl()}quantityunitconversion/${conversionId}${query}`, window.location.origin).toString();
+    return `<a class="btn btn-sm btn-info show-as-dialog-link " href="${escapeHtml(href)}" data-dialog-type="wider"><i class="fa-solid fa-edit"></i></a><a class="btn btn-sm btn-danger qu-conversion-delete-button " href="#" data-qu-conversion-id="${escapeHtml(String(conversionId))}"><i class="fa-solid fa-trash"></i></a>`;
+  }
+
+  function normalizeCellHtmlText(valueInput = '') {
+    return norm(clean(String(valueInput || '').replace(/<[^>]+>/g, ' ')));
+  }
+
+  function productConversionsDataTableInstance() {
+    const table = document.getElementById('qu-conversions-table-products');
+    if (!table) return null;
+    if (!(window.jQuery && window.jQuery.fn && typeof window.jQuery.fn.DataTable === 'function')) return null;
+    try {
+      return window.jQuery(table).DataTable();
+    } catch (_err) {
+      return null;
+    }
+  }
+
+  function applyFractionLabelToConversionNode(node) {
+    const target = node && node.nodeType === 1 ? node : null;
+    if (!target) return false;
+    let decimal = num(target.getAttribute('data-grocy-factor-decimal') || '');
+    if (!(decimal > 0)) {
+      const rawText = clean(target.textContent || '');
+      if (!rawText || rawText.includes('/')) return false;
+      decimal = num(rawText);
+    }
+    if (!(decimal > 0)) return false;
+    const fraction = formatFractionLabel(decimal, {
+      maxDenominator: 12,
+      tolerance: 0.001,
+      allowDenominatorOne: false,
+    });
+    if (!fraction) return false;
+    target.setAttribute('data-grocy-factor-decimal', String(decimal));
+    if (target.classList) {
+      target.classList.remove('locale-number', 'locale-number-quantity-amount', 'number-parsing-done');
+      target.classList.add('grocy-conversion-fraction-display');
+    }
+    target.textContent = fraction;
+    target.setAttribute('title', formatProductConversionDecimal(decimal, 6));
+    return true;
+  }
+
+  function applyFractionDisplayToProductConversionsTable(root = document) {
+    const scope = root && root.querySelector ? root : document;
+    const table = scope.querySelector('#qu-conversions-table-products') || document.getElementById('qu-conversions-table-products');
+    if (!table || !table.tBodies || table.tBodies.length === 0) return;
+    const rows = table.tBodies[0].rows || [];
+    for (const row of rows) {
+      if (!row || !row.cells || row.cells.length < 4) continue;
+      const factorCell = row.cells[3];
+      if (factorCell) {
+        let factorNode = factorCell.querySelector('span[data-grocy-factor-decimal], span.locale-number, span.grocy-conversion-fraction-display');
+        if (!factorNode) {
+          const factorText = clean(factorCell.textContent || '');
+          const factorDecimal = num(factorText);
+          if (factorText && factorDecimal > 0) {
+            factorCell.innerHTML = `<span data-grocy-factor-decimal="${escapeHtml(String(factorDecimal))}">${escapeHtml(factorText)}</span>`;
+            factorNode = factorCell.querySelector('span');
+          }
+        }
+        if (factorNode) applyFractionLabelToConversionNode(factorNode);
+      }
+
+      if (row.cells.length >= 5) {
+        const infoCell = row.cells[4];
+        const infoNodes = infoCell
+          ? infoCell.querySelectorAll('span[data-grocy-factor-decimal], span.locale-number, span.grocy-conversion-fraction-display')
+          : [];
+        infoNodes.forEach((node) => {
+          applyFractionLabelToConversionNode(node);
+        });
+      }
+    }
+  }
+
+  function upsertProductConversionRowInTable(payloadInput = {}) {
+    const payload = payloadInput && typeof payloadInput === 'object' ? payloadInput : {};
+    const conversionId = num(payload.id);
+    const productId = num(payload.productId);
+    const fromQuLabel = clean(payload.fromQuLabel || '');
+    const toQuLabel = clean(payload.toQuLabel || '');
+    const factor = num(payload.factor);
+    if (!(conversionId > 0) || !(factor > 0) || !fromQuLabel || !toQuLabel) return false;
+    const dt = productConversionsDataTableInstance();
+    if (!dt) return false;
+
+    const factorHtml = productConversionFactorDisplayHtml(factor);
+    const actionHtml = productConversionActionCellHtml(conversionId, productId);
+    const infoHtml = `${escapeHtml(langText('Signifie que', 'This means'))}  1 ${escapeHtml(fromQuLabel)} ${escapeHtml(langText('correspond aussi à', 'equals'))} ${factorHtml} ${escapeHtml(toQuLabel)}`;
+    const rowData = [actionHtml, escapeHtml(fromQuLabel), escapeHtml(toQuLabel), factorHtml, infoHtml];
+    const conversionIdMarker = `data-qu-conversion-id="${conversionId}"`;
+    const fromNorm = norm(fromQuLabel);
+    const toNorm = norm(toQuLabel);
+    let matchedRow = null;
+
+    dt.rows().every(function eachRow() {
+      if (matchedRow) return;
+      const data = this.data();
+      const actionCellRaw = Array.isArray(data) ? String(data[0] || '') : String(data || '');
+      if (actionCellRaw.includes(conversionIdMarker)) {
+        matchedRow = this;
+        return;
+      }
+      if (!Array.isArray(data) || data.length < 3) return;
+      const rowFromNorm = normalizeCellHtmlText(data[1]);
+      const rowToNorm = normalizeCellHtmlText(data[2]);
+      if (fromNorm && toNorm && rowFromNorm === fromNorm && rowToNorm === toNorm) {
+        matchedRow = this;
+      }
+    });
+
+    if (matchedRow) {
+      matchedRow.data(rowData);
+    } else {
+      dt.row.add(rowData);
+    }
+    dt.draw(false);
+    try {
+      if (typeof window.RefreshLocaleNumberDisplay === 'function') {
+        window.RefreshLocaleNumberDisplay();
+      }
+    } catch (_err) {}
+    applyFractionDisplayToProductConversionsTable(document);
+    return true;
+  }
+
+  function installProductConversionRowUpsertHelper() {
+    const helper = (payloadInput = {}) => {
+      try {
+        return upsertProductConversionRowInTable(payloadInput);
+      } catch (_err) {
+        return false;
+      }
+    };
+    helper.__grocyProductHelper = '1';
+    window.grocyProductHelperUpsertQuConversionRow = helper;
+  }
+
+  function initProductConversionTableEnhancements(root = document) {
+    const scope = root && root.querySelector ? root : document;
+    const table = scope.querySelector('#qu-conversions-table-products') || document.getElementById('qu-conversions-table-products');
+    if (!table) return;
+    installProductConversionRowUpsertHelper();
+    applyFractionDisplayToProductConversionsTable(document);
+    if (table.dataset.grocyFractionDrawBound !== '1' && window.jQuery) {
+      table.dataset.grocyFractionDrawBound = '1';
+      window.jQuery(table)
+        .off('draw.dt.grocyProductHelperFraction')
+        .on('draw.dt.grocyProductHelperFraction', () => {
+          applyFractionDisplayToProductConversionsTable(document);
+        });
+    }
+  }
+
   function setParentModeNodeHidden(node, hidden) {
     if (!node || !node.classList) return;
     node.classList.toggle('grocy-parent-mode-hidden', hidden === true);
@@ -28976,6 +29416,76 @@
     return `https://icons.duckduckgo.com/ip3/${encodeURIComponent(host)}.ico`;
   }
 
+  function ensureProductTitleHelperLayout() {
+    if (!isProductEditPage()) return { titleWrap: null, titleActions: null, titleHead: null };
+    const titleWrap = productMainTitleWrap();
+    if (!titleWrap) return { titleWrap: null, titleActions: null, titleHead: null };
+    const title = titleWrap.querySelector('h2.title');
+    if (!title) return { titleWrap: null, titleActions: null, titleHead: null };
+
+    titleWrap.classList.add('grocy-product-title-wrap');
+    let titleHead = titleWrap.querySelector('.grocy-product-title-head');
+    if (!titleHead) {
+      titleHead = document.createElement('div');
+      titleHead.className = 'grocy-product-title-head';
+      titleWrap.insertBefore(titleHead, titleWrap.firstChild);
+    }
+    if (title.parentElement !== titleHead) {
+      titleHead.appendChild(title);
+    }
+
+    let activeProxyWrap = titleHead.querySelector('.grocy-product-title-active-proxy');
+    const activeInput = document.getElementById('active');
+    const activeSourceGroup = activeInput && activeInput.closest ? activeInput.closest('.form-group') : null;
+    if (activeSourceGroup) {
+      activeSourceGroup.classList.add('grocy-title-active-source-hidden');
+    }
+
+    if (activeInput && !activeProxyWrap) {
+      activeProxyWrap = document.createElement('div');
+      activeProxyWrap.className = 'custom-control custom-checkbox grocy-product-title-active-proxy';
+      activeProxyWrap.innerHTML = `
+        <input type="checkbox" class="custom-control-input" id="grocy-product-title-active-proxy-input" aria-label="${escapeHtml(langText('actif', 'active'))}">
+        <label class="custom-control-label" for="grocy-product-title-active-proxy-input"></label>
+      `;
+      titleHead.insertBefore(activeProxyWrap, title);
+    }
+
+    if (activeInput && activeProxyWrap) {
+      const proxyInput = activeProxyWrap.querySelector('#grocy-product-title-active-proxy-input');
+      if (proxyInput) {
+        const syncFromSource = () => {
+          proxyInput.checked = !!activeInput.checked;
+        };
+        if (activeInput.dataset.grocyTitleActiveProxyBound !== '1') {
+          activeInput.dataset.grocyTitleActiveProxyBound = '1';
+          activeInput.addEventListener('input', syncFromSource);
+          activeInput.addEventListener('change', syncFromSource);
+        }
+        if (proxyInput.dataset.grocySourceActiveProxyBound !== '1') {
+          proxyInput.dataset.grocySourceActiveProxyBound = '1';
+          proxyInput.addEventListener('change', () => {
+            const next = !!proxyInput.checked;
+            if (activeInput.checked === next) return;
+            activeInput.checked = next;
+            activeInput.dispatchEvent(new Event('input', { bubbles: true }));
+            activeInput.dispatchEvent(new Event('change', { bubbles: true }));
+          });
+        }
+        syncFromSource();
+      }
+    }
+
+    let titleActions = titleHead.querySelector('.grocy-product-title-helper-actions');
+    if (!titleActions) {
+      titleActions = document.createElement('span');
+      titleActions.className = 'grocy-product-title-helper-actions';
+      titleHead.appendChild(titleActions);
+    }
+
+    return { titleWrap, titleActions, titleHead };
+  }
+
   function initProductBarcodesHeaderButtons() {
     if (!isProductEditPage()) {
       S.productBarcodesHeaderRefresh = null;
@@ -28991,6 +29501,8 @@
     if (!heading) return;
 
     initOpenFoodFactsToolsStyle();
+    const titleLayout = ensureProductTitleHelperLayout();
+    const titleActions = titleLayout && titleLayout.titleActions ? titleLayout.titleActions : null;
 
     let actions = heading.querySelector('.grocy-off-heading-actions');
     if (!actions) {
@@ -28999,7 +29511,8 @@
       heading.appendChild(actions);
     }
 
-    let offButton = actions.querySelector('[data-facts-open-off]');
+    let offButton = (titleActions && titleActions.querySelector('[data-facts-open-off]'))
+      || actions.querySelector('[data-facts-open-off]');
     if (!offButton) {
       offButton = document.createElement('button');
       offButton.type = 'button';
@@ -29008,7 +29521,8 @@
       actions.appendChild(offButton);
     }
 
-    let opfButton = actions.querySelector('[data-facts-open-opf]');
+    let opfButton = (titleActions && titleActions.querySelector('[data-facts-open-opf]'))
+      || actions.querySelector('[data-facts-open-opf]');
     if (!opfButton) {
       opfButton = document.createElement('button');
       opfButton.type = 'button';
@@ -29027,7 +29541,8 @@
       actions.appendChild(robotButton);
     }
 
-    let robotRetryButton = actions.querySelector('[data-facts-robot-retry]');
+    let robotRetryButton = (titleActions && titleActions.querySelector('[data-facts-robot-retry]'))
+      || actions.querySelector('[data-facts-robot-retry]');
     if (!robotRetryButton) {
       robotRetryButton = document.createElement('button');
       robotRetryButton.type = 'button';
@@ -29037,7 +29552,8 @@
       actions.appendChild(robotRetryButton);
     }
 
-    let googleButton = actions.querySelector('[data-facts-google]');
+    let googleButton = (titleActions && titleActions.querySelector('[data-facts-google]'))
+      || actions.querySelector('[data-facts-google]');
     if (!googleButton) {
       googleButton = document.createElement('button');
       googleButton.type = 'button';
@@ -29052,6 +29568,14 @@
       googleImg.addEventListener('error', () => {
         googleButton.textContent = 'G';
       });
+    }
+
+    if (titleActions) {
+      if (offButton.parentElement !== titleActions) titleActions.appendChild(offButton);
+      if (opfButton.parentElement !== titleActions) titleActions.appendChild(opfButton);
+      if (googleButton.parentElement !== titleActions) titleActions.appendChild(googleButton);
+      if (robotRetryButton.parentElement !== titleActions) titleActions.appendChild(robotRetryButton);
+      if (robotButton.parentElement !== actions) actions.appendChild(robotButton);
     }
 
     let headingStatus = titleWrap.querySelector('#grocy-barcode-header-status');
@@ -29119,14 +29643,12 @@
             <span class="small">${escapeHtml(langText('Code-barres', 'Barcode'))}: ${escapeHtml(code)}</span>
             ${brandName ? `<span class="small">${escapeHtml(langText('Marque', 'Brand'))}: ${escapeHtml(brandName)}</span>` : ''}
             ${quantityLabel ? `<span class="small">${escapeHtml(langText('Poids/quantité', 'Weight/quantity'))}: ${escapeHtml(quantityLabel)}</span>` : ''}
+            ${sourceUrl ? `<span class="small"><a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener">${escapeHtml(langText('Ouvrir la fiche source', 'Open source product page'))}</a></span>` : ''}
             <span class="small text-info">${escapeHtml(langText('Sélection requise: clique la fiche pour ajouter le code-barres.', 'Selection required: click the card to add the barcode.'))}</span>
             <span class="grocy-barcode-robot-card-actions">
               <button type="button" class="btn btn-primary btn-sm" data-facts-robot-confirm="1">${escapeHtml(langText('Sélectionner cette fiche', 'Select this card'))}</button>
             </span>
           </span>
-        </div>
-        <div class="mt-1">
-          ${sourceUrl ? `<a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener">${escapeHtml(langText('Ouvrir la fiche source', 'Open source product page'))}</a>` : ''}
         </div>
       `;
       headingRobotCard.classList.remove('d-none');
@@ -29142,6 +29664,9 @@
       const purchaseUnitId = currentProductPurchaseUnitId();
 
       actions.classList.toggle('d-none', parentMode || !hasBarcodeTable);
+      if (titleActions) {
+        titleActions.classList.toggle('d-none', parentMode || !hasBarcodeTable);
+      }
       if (parentMode || !hasBarcodeTable) {
         clearPendingHeaderRobotSelection();
         return;
@@ -30133,7 +30658,7 @@
   }
 
   function productSpecificConversionFactorInputs(root = document) {
-    if (!isProductFormPage()) return [];
+    if (!isProductConversionFractionHostPage()) return [];
     const scope = root && root.querySelectorAll ? root : document;
     const hasProductConversionsTable = !!document.getElementById('qu-conversions-table-products');
     const out = [];
@@ -30162,6 +30687,21 @@
     });
     return out;
   }
+
+  const PRODUCT_CONVERSION_FRACTION_PRESETS = [
+    '1/2',
+    '1/3',
+    '2/3',
+    '1/4',
+    '3/4',
+    '1/5',
+    '1/6',
+    '5/6',
+    '1/8',
+    '1/10',
+    '6/1',
+    '12/1',
+  ];
 
   function applyFractionToConversionFactorInput(factorInput, fractionRawInput = '', statusNode = null, optionsInput = null) {
     const options = optionsInput && typeof optionsInput === 'object' ? optionsInput : {};
@@ -30197,11 +30737,239 @@
     return decimal;
   }
 
+  function selectedOptionLabel(selectInput) {
+    const select = selectInput && selectInput.nodeType === 1 ? selectInput : null;
+    if (!select || !select.options) return '';
+    const selected = select.selectedIndex >= 0 ? select.options[select.selectedIndex] : null;
+    return clean(selected ? selected.textContent : '');
+  }
+
+  function conversionPresetContextFromFactorInput(factorInput) {
+    const factor = factorInput && factorInput.nodeType === 1 ? factorInput : null;
+    if (!factor) return null;
+    const form = factor.form || factor.closest('form');
+    if (!form) return null;
+    const fromSelect = form.querySelector('select[name="from_qu_id"], select#from_qu_id, select[id*="from_qu_id"]');
+    const toSelect = form.querySelector('select[name="to_qu_id"], select#to_qu_id, select[id*="to_qu_id"]');
+    const productInput = form.querySelector('input[name="product_id"], select[name="product_id"], input[id*="product_id"], select[id*="product_id"]');
+    return {
+      form,
+      factor,
+      fromSelect,
+      toSelect,
+      productInput,
+    };
+  }
+
+  function productConversionPresetReadiness(contextInput) {
+    const context = contextInput && typeof contextInput === 'object' ? contextInput : null;
+    if (!context || !context.form || !context.fromSelect || !context.toSelect) {
+      return {
+        ready: false,
+        message: langText('Formulaire de conversion introuvable.', 'Conversion form not found.'),
+      };
+    }
+    const fromQuId = num(context.fromSelect.value);
+    const toQuId = num(context.toSelect.value);
+    const productId = num(context.productInput && context.productInput.value ? context.productInput.value : 0);
+    if (!(fromQuId > 0)) {
+      return {
+        ready: false,
+        message: langText('Sélectionne "De l\'unité" avant d\'utiliser un preset.', 'Select "From unit" before using a preset.'),
+      };
+    }
+    if (!(toQuId > 0)) {
+      return {
+        ready: false,
+        message: langText('Sélectionne "À l\'unité" avant d\'utiliser un preset.', 'Select "To unit" before using a preset.'),
+      };
+    }
+    if (fromQuId === toQuId) {
+      return {
+        ready: false,
+        message: langText('Les unités "De" et "À" doivent être différentes.', '"From" and "To" units must be different.'),
+      };
+    }
+    if (!(productId > 0)) {
+      return {
+        ready: false,
+        message: langText('Produit introuvable pour sauvegarder ce preset.', 'Product not found for this preset save.'),
+      };
+    }
+    return {
+      ready: true,
+      fromQuId,
+      toQuId,
+      productId,
+    };
+  }
+
+  function productConversionPresetPayload(contextInput, factorValueInput) {
+    const context = contextInput && typeof contextInput === 'object' ? contextInput : null;
+    const readiness = productConversionPresetReadiness(context);
+    if (!readiness.ready) return null;
+    const factorValue = num(factorValueInput);
+    if (!(factorValue > 0)) return null;
+    return {
+      from_qu_id: readiness.fromQuId,
+      to_qu_id: readiness.toQuId,
+      factor: factorValue,
+      product_id: readiness.productId,
+    };
+  }
+
+  async function findExistingProductSpecificConversionId(payloadInput) {
+    const payload = payloadInput && typeof payloadInput === 'object' ? payloadInput : null;
+    if (!payload) return 0;
+    const fromQuId = num(payload.from_qu_id);
+    const toQuId = num(payload.to_qu_id);
+    const productId = num(payload.product_id);
+    if (!(fromQuId > 0) || !(toQuId > 0) || !(productId > 0)) return 0;
+    const params = new URLSearchParams();
+    params.append('query[]', `product_id=${productId}`);
+    params.append('query[]', `from_qu_id=${fromQuId}`);
+    params.append('query[]', `to_qu_id=${toQuId}`);
+    try {
+      const rows = await fetchJson(`api/objects/quantity_unit_conversions?${params.toString()}`);
+      if (!Array.isArray(rows) || rows.length === 0) return 0;
+      const match = rows.find((row) => {
+        const id = num(row && row.id);
+        const rowFrom = num(row && row.from_qu_id);
+        const rowTo = num(row && row.to_qu_id);
+        const rowProduct = num(row && row.product_id);
+        return id > 0 && rowFrom === fromQuId && rowTo === toQuId && rowProduct === productId;
+      });
+      return num(match && match.id);
+    } catch (_err) {
+      return 0;
+    }
+  }
+
+  function syncProductConversionGrocyEditState(conversionIdInput) {
+    const conversionId = num(conversionIdInput);
+    if (!(conversionId > 0)) return;
+    try {
+      if (window.Grocy) {
+        window.Grocy.EditMode = 'edit';
+        window.Grocy.EditObjectId = conversionId;
+      }
+    } catch (_err) {}
+  }
+
+  function notifyHostProductConversionPresetSaved(payloadInput = {}) {
+    const payload = payloadInput && typeof payloadInput === 'object' ? payloadInput : null;
+    if (!payload) return false;
+    let synced = false;
+    try {
+      if (window.parent && window.parent !== window && typeof window.parent.grocyProductHelperUpsertQuConversionRow === 'function') {
+        synced = window.parent.grocyProductHelperUpsertQuConversionRow(payload) === true;
+      }
+    } catch (_err) {}
+    if (synced) return true;
+    try {
+      if (typeof window.grocyProductHelperUpsertQuConversionRow === 'function') {
+        synced = window.grocyProductHelperUpsertQuConversionRow(payload) === true;
+      }
+    } catch (_err) {}
+    return synced;
+  }
+
+  async function saveProductSpecificConversionPresetValue(contextInput, fractionRawInput, factorValueInput, statusNode = null) {
+    const context = contextInput && typeof contextInput === 'object' ? contextInput : null;
+    const payload = productConversionPresetPayload(context, factorValueInput);
+    if (!payload) {
+      const readiness = productConversionPresetReadiness(context);
+      if (statusNode) {
+        setBarcodeAutofillStatus(statusNode, readiness.message || langText('Preset impossible à sauvegarder.', 'Preset could not be saved.'), 'warning');
+      }
+      return { ok: false, reason: 'invalid_context' };
+    }
+
+    const factorValue = num(payload.factor);
+    const fractionRaw = clean(fractionRawInput || '');
+    const modeRaw = norm(clean(window?.Grocy?.EditMode || ''));
+    let conversionId = modeRaw === 'edit' ? num(window?.Grocy?.EditObjectId) : 0;
+    let strategy = conversionId > 0 ? 'put-edit' : 'lookup';
+    if (statusNode) {
+      setBarcodeAutofillStatus(
+        statusNode,
+        langText(
+          `Enregistrement du preset ${fractionRaw || formatProductConversionDecimal(factorValue)} en base...`,
+          `Saving preset ${fractionRaw || formatProductConversionDecimal(factorValue)} to database...`
+        ),
+        'info'
+      );
+    }
+
+    try {
+      if (conversionId > 0) {
+        await putJson(`api/objects/quantity_unit_conversions/${conversionId}`, payload);
+      } else {
+        const existingId = await findExistingProductSpecificConversionId(payload);
+        if (existingId > 0) {
+          conversionId = existingId;
+          strategy = 'put-existing';
+          await putJson(`api/objects/quantity_unit_conversions/${conversionId}`, payload);
+        } else {
+          strategy = 'post-create';
+          const creation = await postJson('api/objects/quantity_unit_conversions', payload);
+          conversionId = num(creation && (creation.created_object_id || creation.id || creation.object_id));
+          if (!(conversionId > 0)) {
+            const secondPass = await findExistingProductSpecificConversionId(payload);
+            conversionId = num(secondPass);
+          }
+          if (!(conversionId > 0)) {
+            throw new Error(langText('ID conversion introuvable après création.', 'Conversion id not found after creation.'));
+          }
+        }
+      }
+    } catch (error) {
+      const message = clean(error && error.message ? error.message : String(error)) || langText('Erreur inconnue.', 'Unknown error.');
+      if (statusNode) {
+        setBarcodeAutofillStatus(
+          statusNode,
+          langText(`Échec sauvegarde preset: ${message}`, `Preset save failed: ${message}`),
+          'danger'
+        );
+      }
+      return { ok: false, reason: 'api_error', error: message };
+    }
+
+    syncProductConversionGrocyEditState(conversionId);
+    const fromLabel = selectedOptionLabel(context && context.fromSelect);
+    const toLabel = selectedOptionLabel(context && context.toSelect);
+    const hostSynced = notifyHostProductConversionPresetSaved({
+      id: conversionId,
+      productId: num(payload.product_id),
+      fromQuId: num(payload.from_qu_id),
+      toQuId: num(payload.to_qu_id),
+      factor: factorValue,
+      fromQuLabel: fromLabel,
+      toQuLabel: toLabel,
+    });
+    applyFractionDisplayToProductConversionsTable(document);
+
+    if (statusNode) {
+      const doneText = hostSynced
+        ? langText(`Preset ${fractionRaw || formatProductConversionDecimal(factorValue)} sauvegardé (base + liste mise à jour).`, `Preset ${fractionRaw || formatProductConversionDecimal(factorValue)} saved (database + list refreshed).`)
+        : langText(`Preset ${fractionRaw || formatProductConversionDecimal(factorValue)} sauvegardé en base.`, `Preset ${fractionRaw || formatProductConversionDecimal(factorValue)} saved in database.`);
+      setBarcodeAutofillStatus(statusNode, doneText, 'success');
+    }
+
+    return {
+      ok: true,
+      id: conversionId,
+      strategy,
+      hostSynced,
+    };
+  }
+
   function bindProductSpecificConversionFractionInput(factorInput) {
     const factor = factorInput && factorInput.nodeType === 1 ? factorInput : null;
     if (!factor) return;
     if (factor.dataset.grocyFractionBound === '1') return;
     factor.dataset.grocyFractionBound = '1';
+    initOpenFoodFactsToolsStyle();
 
     const form = factor.form || factor.closest('form');
     if (!form) return;
@@ -30222,22 +30990,102 @@
     wrapper.innerHTML = `
       <label class="small mb-1 d-block text-muted">${escapeHtml(langText('Fraction de conversion (optionnel)', 'Conversion fraction (optional)'))}</label>
       <input type="text" class="form-control form-control-sm" data-grocy-conversion-fraction-input="1" placeholder="1/6">
+      <div class="small text-muted mt-2 mb-1">${escapeHtml(langText('Fractions préréglées', 'Preset fractions'))}</div>
+      <div class="grocy-product-conversion-fraction-presets" data-grocy-conversion-fraction-presets="1"></div>
       <div class="small text-muted mt-1">${escapeHtml(langText('Exemples: 1/6, 2/3, 6/1. La fraction est convertie en décimal.', 'Examples: 1/6, 2/3, 6/1. Fraction is converted to decimal.'))}</div>
       <div class="small text-muted grocy-product-conversion-fraction-status" data-grocy-conversion-fraction-status="1"></div>
     `;
     container.insertAdjacentElement('afterend', wrapper);
 
     const fractionInput = wrapper.querySelector('[data-grocy-conversion-fraction-input="1"]');
+    const presetsWrap = wrapper.querySelector('[data-grocy-conversion-fraction-presets="1"]');
     const statusNode = wrapper.querySelector('[data-grocy-conversion-fraction-status="1"]');
     if (!fractionInput) return;
+    const presetContext = conversionPresetContextFromFactorInput(factor);
+
+    const syncPresetButtonsState = () => {
+      if (!presetsWrap) return;
+      const currentRaw = clean(fractionInput.value || '').replace(/\s+/g, '');
+      const presetButtons = presetsWrap.querySelectorAll('[data-grocy-conversion-fraction-preset]');
+      presetButtons.forEach((btn) => {
+        const raw = clean(btn.getAttribute('data-grocy-conversion-fraction-preset') || '').replace(/\s+/g, '');
+        btn.classList.toggle('is-active', !!currentRaw && raw === currentRaw);
+      });
+    };
+
+    const setPresetButtonsBusy = (busy) => {
+      if (!presetsWrap) return;
+      const enabledBusy = busy === true;
+      wrapper.dataset.grocyFractionPresetBusy = enabledBusy ? '1' : '0';
+      const presetButtons = presetsWrap.querySelectorAll('[data-grocy-conversion-fraction-preset]');
+      presetButtons.forEach((btn) => {
+        btn.disabled = enabledBusy;
+        btn.classList.toggle('disabled', enabledBusy);
+      });
+    };
+
+    const refreshPresetAvailability = () => {
+      if (!presetsWrap) return;
+      const state = productConversionPresetReadiness(presetContext);
+      const busy = wrapper.dataset.grocyFractionPresetBusy === '1';
+      wrapper.classList.toggle('is-disabled', !state.ready);
+      const presetButtons = presetsWrap.querySelectorAll('[data-grocy-conversion-fraction-preset]');
+      presetButtons.forEach((btn) => {
+        const shouldDisable = busy || !state.ready;
+        btn.disabled = shouldDisable;
+        btn.classList.toggle('disabled', shouldDisable);
+      });
+      if (!state.ready) {
+        if (statusNode) {
+          setBarcodeAutofillStatus(statusNode, state.message || langText('Preset indisponible.', 'Preset unavailable.'), 'warning');
+          statusNode.dataset.grocyPresetWarning = '1';
+        }
+      } else if (statusNode && statusNode.dataset.grocyPresetWarning === '1') {
+        delete statusNode.dataset.grocyPresetWarning;
+        setBarcodeAutofillStatus(statusNode, '', 'muted');
+      }
+    };
+
+    if (presetsWrap && !presetsWrap.querySelector('[data-grocy-conversion-fraction-preset]')) {
+      PRODUCT_CONVERSION_FRACTION_PRESETS.forEach((fractionRaw) => {
+        const parsed = parsePositiveFraction(fractionRaw);
+        if (!parsed) return;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-outline-secondary btn-sm';
+        btn.setAttribute('data-grocy-conversion-fraction-preset', fractionRaw);
+        btn.textContent = fractionRaw;
+        btn.title = langText(
+          `Appliquer ${fractionRaw} (${fmt(parsed.value, 6)})`,
+          `Apply ${fractionRaw} (${fmt(parsed.value, 6)})`
+        );
+        btn.addEventListener('click', async () => {
+          if (btn.disabled) return;
+          fractionInput.value = fractionRaw;
+          const decimalApplied = applyFractionToConversionFactorInput(factor, fractionRaw, statusNode);
+          syncPresetButtonsState();
+          if (!(decimalApplied > 0)) return;
+          setPresetButtonsBusy(true);
+          try {
+            await saveProductSpecificConversionPresetValue(presetContext, fractionRaw, decimalApplied, statusNode);
+          } finally {
+            setPresetButtonsBusy(false);
+            refreshPresetAvailability();
+          }
+        });
+        presetsWrap.appendChild(btn);
+      });
+    }
 
     const applyFromFractionInput = () => {
       const raw = clean(fractionInput.value || '');
       if (!raw) {
         if (statusNode) setBarcodeAutofillStatus(statusNode, '', 'muted');
+        syncPresetButtonsState();
         return;
       }
       applyFractionToConversionFactorInput(factor, raw, statusNode);
+      syncPresetButtonsState();
     };
 
     const normalizeFactorSlashInput = () => {
@@ -30246,6 +31094,7 @@
       const applied = applyFractionToConversionFactorInput(factor, raw, statusNode);
       if (applied && !clean(fractionInput.value || '')) {
         fractionInput.value = raw;
+        syncPresetButtonsState();
       }
     };
 
@@ -30253,6 +31102,18 @@
     fractionInput.addEventListener('blur', applyFromFractionInput);
     factor.addEventListener('change', normalizeFactorSlashInput);
     factor.addEventListener('blur', normalizeFactorSlashInput);
+    if (presetContext && presetContext.fromSelect && presetContext.fromSelect.dataset.grocyFractionPresetStateBound !== '1') {
+      presetContext.fromSelect.dataset.grocyFractionPresetStateBound = '1';
+      presetContext.fromSelect.addEventListener('change', refreshPresetAvailability);
+      presetContext.fromSelect.addEventListener('input', refreshPresetAvailability);
+    }
+    if (presetContext && presetContext.toSelect && presetContext.toSelect.dataset.grocyFractionPresetStateBound !== '1') {
+      presetContext.toSelect.dataset.grocyFractionPresetStateBound = '1';
+      presetContext.toSelect.addEventListener('change', refreshPresetAvailability);
+      presetContext.toSelect.addEventListener('input', refreshPresetAvailability);
+    }
+    syncPresetButtonsState();
+    refreshPresetAvailability();
 
     if (form.dataset.grocyFractionSubmitBound !== '1') {
       form.dataset.grocyFractionSubmitBound = '1';
@@ -30301,7 +31162,7 @@
   }
 
   function initProductSpecificConversionFractionSupport(root = document) {
-    if (!isProductFormPage()) {
+    if (!isProductConversionFractionHostPage()) {
       if (S.productConversionFractionObserver) {
         try { S.productConversionFractionObserver.disconnect(); } catch (_err) {}
         S.productConversionFractionObserver = null;
@@ -30314,7 +31175,7 @@
   }
 
   function initProductSpecificConversionFractionObserver() {
-    if (!isProductFormPage()) return;
+    if (!isProductConversionFractionHostPage()) return;
     if (S.productConversionFractionObserver) return;
     if (!document.body || !window.MutationObserver) return;
     S.productConversionFractionObserver = new MutationObserver((mutations) => {
@@ -30338,6 +31199,7 @@
     initProductEnergyVisibilityGuard();
     initProductEnergyRobotButton();
     initProductBarcodesHeaderButtons();
+    initProductConversionTableEnhancements(document);
     initProductSpecificConversionFractionSupport(document);
     initProductSpecificConversionFractionObserver();
     initBarcodeAutofillButtons(document);
@@ -30385,8 +31247,4 @@
   else init();
 })();
 </script>
-
-
-
-
 
