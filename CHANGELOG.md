@@ -1,5 +1,10 @@
 # Changelog
 
+## [4.0.4] - 2026-03-04
+
+### Fixed
+- Restored the kcal field visibility on parent product create/edit pages; parent mode no longer forces calories to 0.
+
 ## [4.0.3] - 2026-02-26
 
 ### Added

@@ -25755,12 +25755,7 @@
         statusNode: status,
       });
       if (hiddenForGroup) {
-        robotButton.title = isProductParentModeEnabled()
-          ? langText(
-            'Énergie désactivée en mode parent',
-            'Energy disabled in parent mode'
-          )
-          : langText(
+        robotButton.title = langText(
             'Énergie désactivée pour ce groupe non comestible',
             'Energy disabled for this non-edible group'
           );
@@ -29019,7 +29014,6 @@
   }
 
   function shouldHideEnergyForCurrentGroup() {
-    if (isProductParentModeEnabled()) return true;
     const groupLabel = currentProductGroupLabel();
     return isNonEdibleProductGroupLabel(groupLabel);
   }
@@ -29047,7 +29041,7 @@
     const robotButton = options.robotButton || null;
     const actionsNode = options.actionsNode || null;
     const statusNode = options.statusNode || null;
-    const shouldHide = shouldHideEnergyForCurrentGroup() || isProductParentModeEnabled();
+    const shouldHide = shouldHideEnergyForCurrentGroup();
 
     if (shouldHide) {
       forceCaloriesInputToZero(caloriesInput);
