@@ -1,5 +1,15 @@
 # Changelog
 
+## [4.0.5] - 2026-03-05
+
+### Changed
+- Barcode auto-lookup now tries advanced name variants with brand hint first (user Brand field or brand parsed from product name), then retries without brand before final normal fallback.
+- Robot barcode flows now expose `brand-alternative` mode details in status/terminal diagnostics and keep OFF+OPF fallback chain enabled.
+
+### Added
+- New ProductHelper settings section in **Données produit**: lists active non-parent products without barcodes.
+- Per-product vertical cards with editable prefilled amount (purchase->stock factor), OFF/OPF lookup, source candidate card preview, and explicit user validation before barcode creation.
+- Creation safety checks before final write (active flag, parent mode, purchase unit presence, and duplicate barcode guard).
 ## [4.0.4] - 2026-03-04
 
 ### Fixed
@@ -110,6 +120,7 @@
 - OFF/OPF barcode lookup and guided barcode creation.
 - Product-form helpers including conversion fraction support.
 - Parent product sync safeguards and product status terminal.
+
 
 
 

@@ -10,7 +10,7 @@
   NERDCORE.registerAddon({
     id: 'producthelper',
     name: 'ProductHelper',
-    version: '4.0.3',
+    version: '4.0.5',
     settingsSection: 'producthelper',
     settingsTitle: 'ProductHelper',
     settingsIcon: 'fa-box-open',
@@ -151,6 +151,15 @@
     productConversionFractionObserver: null,
     barcodeAutofillObserver: null,
     barcodeLookupRunCache: new Map(),
+    missingBarcodeSection: {
+      loading: false,
+      loadedAt: 0,
+      products: [],
+      byProductId: new Map(),
+      pendingSelectionByProductId: new Map(),
+      brandHintByProductId: new Map(),
+      lookupRunCacheByProductId: new Map(),
+    },
     productFormTypeRulesRefresh: null,
     productFormRuleSyncing: false,
     productUserfieldsSavePatched: false,
@@ -1996,6 +2005,40 @@
       facts_api_test_active_success: 'Ordre actif validé: {{provider}} a répondu en {{ms}} ms.',
       facts_api_test_active_error: 'Échec ordre actif: {{msg}}.',
       facts_provider_switch_note: 'Ordre actif: {{order}}',
+      settings_section_missing_barcodes: 'Produits sans code-barres',
+      missing_barcodes_desc: 'Liste des produits actifs non parent sans code-barres. Recherche OFF/OPF puis validation manuelle.',
+      missing_barcodes_loading: 'Chargement des produits sans code-barres...',
+      missing_barcodes_count: '{{count}} produit(s) sans code-barres.',
+      missing_barcodes_refresh_btn: 'Rafraîchir',
+      missing_barcodes_search_btn: 'Rechercher code-barres',
+      missing_barcodes_lookup_error: 'Recherche impossible: {{msg}}',
+      missing_barcodes_selection_required: 'Sélection requise: valide la fiche avant création.',
+      missing_barcodes_select_card_btn: 'Sélectionner cette fiche',
+      missing_barcodes_amount_label: 'Quantité (préremplie)',
+      missing_barcodes_add_barcode_btn: 'Ajouter le code-barres',
+      missing_barcodes_status_idle: 'Clique sur rafraîchir pour charger la liste.',
+      missing_barcodes_status_empty: 'Aucun produit actif non parent sans code-barres.',
+      missing_barcodes_status_loaded: 'Liste chargée: {{count}} produit(s) sans code-barres.',
+      missing_barcodes_status_created: 'Code-barres {{code}} ajouté pour {{product}}.',
+      missing_barcodes_status_refresh_error: 'Impossible de charger la liste: {{msg}}',
+      missing_barcodes_status_searching: 'Recherche OFF/OPF en cours...',
+      missing_barcodes_status_invalid_amount: 'Quantité invalide: saisis une valeur > 0.',
+      missing_barcodes_status_unit_missing: 'Unité d\'achat manquante: recherche bloquée.',
+      missing_barcodes_status_creating: 'Création du code-barres en cours...',
+      missing_barcodes_status_stale: 'Fiche obsolète: recharge la liste avant de créer.',
+      missing_barcodes_status_already_barcode: 'Ce produit a déjà un code-barres.',
+      missing_barcodes_status_parent: 'Ce produit est devenu parent: création bloquée.',
+      missing_barcodes_status_inactive: 'Ce produit est inactif: création bloquée.',
+      missing_barcodes_status_no_result: 'Aucun résultat fiable trouvé sur OFF/OPF.',
+      missing_barcodes_card_product_id: 'ID produit: {{id}}',
+      missing_barcodes_card_purchase_unit: 'Unité d\'achat: {{unit}} (#{{id}})',
+      missing_barcodes_card_purchase_unit_missing: 'Unité d\'achat manquante',
+      missing_barcodes_card_brand_hint: 'Marque détectée: {{brand}} ({{source}})',
+      missing_barcodes_card_brand_source_field: 'champ Marque',
+      missing_barcodes_card_brand_source_name: 'nom produit',
+      missing_barcodes_card_mode_brand_alternative: 'Mode: alternative + marque',
+      missing_barcodes_card_mode_alternative: 'Mode: alternative',
+      missing_barcodes_card_mode_normal: 'Mode: fallback normal',
       settings_section_photo_search: 'Recherche photo produit',
       photo_search_engine_label: 'Moteur de recherche image',
       photo_search_engine_google: 'Google Images',
@@ -2679,6 +2722,40 @@
       facts_api_test_active_success: 'Active order validated: {{provider}} responded in {{ms}} ms.',
       facts_api_test_active_error: 'Active order failed: {{msg}}.',
       facts_provider_switch_note: 'Active order: {{order}}',
+      settings_section_missing_barcodes: 'Products without barcodes',
+      missing_barcodes_desc: 'List of active non-parent products without barcodes. OFF/OPF lookup then manual validation.',
+      missing_barcodes_loading: 'Loading products without barcodes...',
+      missing_barcodes_count: '{{count}} product(s) without barcodes.',
+      missing_barcodes_refresh_btn: 'Refresh',
+      missing_barcodes_search_btn: 'Search barcode',
+      missing_barcodes_lookup_error: 'Lookup failed: {{msg}}',
+      missing_barcodes_selection_required: 'Selection required: validate this card before creation.',
+      missing_barcodes_select_card_btn: 'Select this card',
+      missing_barcodes_amount_label: 'Amount (pre-filled)',
+      missing_barcodes_add_barcode_btn: 'Add barcode',
+      missing_barcodes_status_idle: 'Click refresh to load the list.',
+      missing_barcodes_status_empty: 'No active non-parent product without barcode.',
+      missing_barcodes_status_loaded: 'List loaded: {{count}} product(s) without barcode.',
+      missing_barcodes_status_created: 'Barcode {{code}} added for {{product}}.',
+      missing_barcodes_status_refresh_error: 'Unable to load list: {{msg}}',
+      missing_barcodes_status_searching: 'OFF/OPF lookup running...',
+      missing_barcodes_status_invalid_amount: 'Invalid amount: enter a value > 0.',
+      missing_barcodes_status_unit_missing: 'Missing purchase unit: lookup blocked.',
+      missing_barcodes_status_creating: 'Creating barcode...',
+      missing_barcodes_status_stale: 'Outdated card: refresh list before creating.',
+      missing_barcodes_status_already_barcode: 'This product already has a barcode.',
+      missing_barcodes_status_parent: 'This product became a parent product: creation blocked.',
+      missing_barcodes_status_inactive: 'This product is inactive: creation blocked.',
+      missing_barcodes_status_no_result: 'No reliable OFF/OPF result found.',
+      missing_barcodes_card_product_id: 'Product ID: {{id}}',
+      missing_barcodes_card_purchase_unit: 'Purchase unit: {{unit}} (#{{id}})',
+      missing_barcodes_card_purchase_unit_missing: 'Missing purchase unit',
+      missing_barcodes_card_brand_hint: 'Detected brand: {{brand}} ({{source}})',
+      missing_barcodes_card_brand_source_field: 'Brand field',
+      missing_barcodes_card_brand_source_name: 'product name',
+      missing_barcodes_card_mode_brand_alternative: 'Mode: alternative + brand',
+      missing_barcodes_card_mode_alternative: 'Mode: alternative',
+      missing_barcodes_card_mode_normal: 'Mode: normal fallback',
       settings_section_photo_search: 'Product photo search',
       photo_search_engine_label: 'Image search engine',
       photo_search_engine_google: 'Google Images',
@@ -7690,6 +7767,43 @@
       #dash_ai_settings_overlay .dash-donne-group .dash-settings-section + .dash-settings-section {
         margin-top: 0.75rem !important;
       }
+      #dash_ai_settings_overlay .dash-missing-barcodes-tools {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.45rem;
+        flex-wrap: wrap;
+      }
+      #dash_ai_settings_overlay .dash-missing-barcodes-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+      }
+      #dash_ai_settings_overlay .dash-missing-barcodes-card {
+        border: 1px solid rgba(255,255,255,0.13);
+        border-radius: 0.42rem;
+        background: rgba(255,255,255,0.025);
+        padding: 0.52rem 0.58rem;
+      }
+      #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 0.45rem;
+        flex-wrap: wrap;
+      }
+      #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-name {
+        font-weight: 600;
+      }
+      #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        flex-wrap: wrap;
+      }
+      #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-result {
+        margin-top: 0.5rem;
+      }
       #dash_ai_settings_overlay #dash_addon_update_release_choices .btn {
         text-align: left;
       }
@@ -11077,6 +11191,575 @@
     status.textContent = clean(text || '');
   }
 
+  function missingBarcodeSectionState() {
+    const base = S.missingBarcodeSection && typeof S.missingBarcodeSection === 'object'
+      ? S.missingBarcodeSection
+      : {};
+    if (!(base.byProductId instanceof Map)) base.byProductId = new Map();
+    if (!(base.pendingSelectionByProductId instanceof Map)) base.pendingSelectionByProductId = new Map();
+    if (!(base.brandHintByProductId instanceof Map)) base.brandHintByProductId = new Map();
+    if (!(base.lookupRunCacheByProductId instanceof Map)) base.lookupRunCacheByProductId = new Map();
+    if (!Array.isArray(base.products)) base.products = [];
+    base.loading = base.loading === true;
+    base.loadedAt = Math.max(0, num(base.loadedAt) || 0);
+    S.missingBarcodeSection = base;
+    return base;
+  }
+
+  function missingBarcodeProductIsActive(rowInput = null) {
+    const row = rowInput && typeof rowInput === 'object' ? rowInput : {};
+    if (!Object.prototype.hasOwnProperty.call(row, 'active')) return true;
+    const raw = row.active;
+    if (raw === null || raw === undefined) return true;
+    if (typeof raw === 'string' && clean(raw) === '') return true;
+    return boolish(raw);
+  }
+
+  function missingBarcodeProductIsParent(rowInput = null) {
+    const row = rowInput && typeof rowInput === 'object' ? rowInput : {};
+    return boolish(row.no_own_stock)
+      || boolish(row.is_parent)
+      || boolish(row.parent);
+  }
+
+  function missingBarcodeProductNameFromRow(rowInput = null) {
+    const row = rowInput && typeof rowInput === 'object' ? rowInput : {};
+    return pickFirstString(row, ['name', 'product_name', 'productName']);
+  }
+
+  function missingBarcodePurchaseUnitIdFromRow(rowInput = null) {
+    const row = rowInput && typeof rowInput === 'object' ? rowInput : {};
+    return pickFirstNumber(row, ['qu_id_purchase', 'purchase_qu_id', 'purchase_quantity_unit_id']);
+  }
+
+  function missingBarcodePurchaseUnitNameFromRow(rowInput = null, quantityUnitByIdInput = null) {
+    const row = rowInput && typeof rowInput === 'object' ? rowInput : {};
+    const direct = cleanUnitLabel(pickFirstString(row, ['qu_name_purchase', 'purchase_quantity_unit_name', 'qu_purchase_name']));
+    if (direct) return direct;
+    const quantityUnitById = quantityUnitByIdInput instanceof Map ? quantityUnitByIdInput : null;
+    const purchaseUnitId = missingBarcodePurchaseUnitIdFromRow(row);
+    if (purchaseUnitId > 0 && quantityUnitById) {
+      return cleanUnitLabel(quantityUnitById.get(purchaseUnitId) || '');
+    }
+    return '';
+  }
+
+  function missingBarcodeDefaultAmountFromRow(rowInput = null) {
+    const row = rowInput && typeof rowInput === 'object' ? rowInput : {};
+    const candidates = [
+      row.qu_factor_purchase_to_stock,
+      row.factor_purchase_to_stock,
+      row.default_consume_amount,
+      row.default_amount,
+    ];
+    for (const candidate of candidates) {
+      const value = num(candidate);
+      if (value > 0) return value;
+    }
+    return 1;
+  }
+
+  function setMissingBarcodesSectionStatus(text = '', level = 'muted') {
+    const status = document.getElementById('dash_missing_barcodes_status');
+    if (!status) return;
+    status.className = `small mt-2 text-${level}`;
+    status.textContent = clean(text || '');
+  }
+
+  function setMissingBarcodesSectionCount(countInput = 0) {
+    const node = document.getElementById('dash_missing_barcodes_count');
+    if (!node) return;
+    const count = Math.max(0, Math.floor(num(countInput) || 0));
+    node.textContent = t('missing_barcodes_count', { count: fmt(count, 0) });
+  }
+
+  function missingBarcodeCardNodeByProductId(productIdInput = 0) {
+    const productId = num(productIdInput);
+    if (!(productId > 0)) return null;
+    return document.querySelector(`#dash_missing_barcodes_list [data-missing-barcode-card="${productId}"]`);
+  }
+
+  function setMissingBarcodesCardStatus(productIdInput = 0, text = '', level = 'muted') {
+    const card = missingBarcodeCardNodeByProductId(productIdInput);
+    if (!card) return;
+    const status = card.querySelector('[data-missing-barcode-status]');
+    if (!status) return;
+    status.className = `small mt-1 text-${level}`;
+    status.textContent = clean(text || '');
+  }
+
+  function readMissingBarcodesCardAmount(productIdInput = 0, fallbackInput = 1) {
+    const productId = num(productIdInput);
+    const fallback = num(fallbackInput) > 0 ? num(fallbackInput) : 1;
+    const card = missingBarcodeCardNodeByProductId(productId);
+    const input = card ? card.querySelector('[data-missing-barcode-amount]') : null;
+    const value = num(input && input.value ? input.value : fallback);
+    return value > 0 ? value : 0;
+  }
+
+  function missingBarcodeBrandSourceLabel(sourceInput = '') {
+    const source = clean(sourceInput || '');
+    if (source === 'field') return t('missing_barcodes_card_brand_source_field');
+    if (source === 'name') return t('missing_barcodes_card_brand_source_name');
+    return t('default_na');
+  }
+
+  function missingBarcodeModeLabel(modeInput = '') {
+    const mode = clean(modeInput || '');
+    if (mode === 'brand-alternative') return t('missing_barcodes_card_mode_brand_alternative');
+    if (mode === 'alternative') return t('missing_barcodes_card_mode_alternative');
+    if (mode === 'normal') return t('missing_barcodes_card_mode_normal');
+    return t('default_na');
+  }
+
+  function buildMissingBarcodesLookupSettings() {
+    const base = normalizeBarcodeLookupSettings(barcodeLookupSettings());
+    return {
+      ...base,
+      enabled: true,
+      autoFallback: true,
+    };
+  }
+
+  async function fetchMissingBarcodeProductsWithoutBarcode() {
+    const [productsPayload, barcodesPayload, quantityUnitById] = await Promise.all([
+      fetchJson('api/objects/products'),
+      fetchJson('api/objects/product_barcodes'),
+      loadQuantityUnitMapFromApi(),
+    ]);
+
+    let productRows = extractArray(productsPayload);
+    if (productRows.length === 0) {
+      productRows = deepCollectObjects(productsPayload, (row) => hasAnyKey(row, ['id']) && hasAnyKey(row, ['name']));
+    }
+
+    let barcodeRows = extractArray(barcodesPayload);
+    if (barcodeRows.length === 0) {
+      barcodeRows = deepCollectObjects(
+        barcodesPayload,
+        (row) => hasAnyKey(row, ['barcode']) && hasAnyKey(row, ['product_id', 'productId'])
+      );
+    }
+
+    const barcodeCountByProductId = new Map();
+    barcodeRows.forEach((row) => {
+      const productId = pickFirstNumber(row, ['product_id', 'productId']);
+      if (!(productId > 0)) return;
+      barcodeCountByProductId.set(productId, (barcodeCountByProductId.get(productId) || 0) + 1);
+    });
+
+    const productsById = new Map();
+    productRows.forEach((row) => {
+      const productId = pickFirstNumber(row, ['id', 'product_id', 'productId']);
+      if (!(productId > 0)) return;
+      if (!productsById.has(productId)) productsById.set(productId, row);
+    });
+
+    const list = [];
+    productsById.forEach((row, productId) => {
+      if (!missingBarcodeProductIsActive(row)) return;
+      if (missingBarcodeProductIsParent(row)) return;
+      const barcodeCount = num(barcodeCountByProductId.get(productId));
+      if (barcodeCount > 0) return;
+
+      const productName = missingBarcodeProductNameFromRow(row);
+      const purchaseUnitId = missingBarcodePurchaseUnitIdFromRow(row);
+      const purchaseUnitName = missingBarcodePurchaseUnitNameFromRow(row, quantityUnitById);
+      const defaultAmount = missingBarcodeDefaultAmountFromRow(row);
+      list.push({
+        productId,
+        productName: productName || `${langText('Produit', 'Product')} #${productId}`,
+        purchaseUnitId,
+        purchaseUnitName,
+        defaultAmount,
+        canCreate: purchaseUnitId > 0,
+      });
+    });
+
+    list.sort((left, right) => {
+      const byName = clean(left.productName).localeCompare(clean(right.productName), undefined, { sensitivity: 'base' });
+      if (byName !== 0) return byName;
+      return num(left.productId) - num(right.productId);
+    });
+
+    return list;
+  }
+
+  function renderMissingBarcodesLookupCard(productIdInput = 0) {
+    const productId = num(productIdInput);
+    if (!(productId > 0)) return;
+    const state = missingBarcodeSectionState();
+    const card = missingBarcodeCardNodeByProductId(productId);
+    if (!card) return;
+    const host = card.querySelector('[data-missing-barcode-result]');
+    if (!host) return;
+    const selection = state.pendingSelectionByProductId.get(productId);
+    if (!selection || !clean(selection.code || '')) {
+      host.innerHTML = '';
+      return;
+    }
+
+    const productName = clean(selection.name || selection.productName || '') || langText('Produit API', 'API product');
+    const providerLabel = clean(selection.providerLabel || '') || t('default_na');
+    const sourceName = clean(selection.sourceDisplayName || '') || t('default_na');
+    const sourceUrl = clean(selection.sourceUrl || '');
+    const imageUrl = /^https?:\/\//i.test(clean(selection.imageUrl || '')) ? clean(selection.imageUrl || '') : '';
+    const brandName = clean(selection.brand || '');
+    const quantityLabel = clean(selection.quantity || '');
+    const brandHint = clean(selection.brandHint || '');
+    const brandSource = clean(selection.brandSource || '');
+    const modeLabel = missingBarcodeModeLabel(selection.modeUsed || '');
+
+    const previewImageHtml = imageUrl
+      ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(productName)}" style="width:48px;height:48px;object-fit:cover;border-radius:8px;border:1px solid rgba(0,0,0,.08);">`
+      : `<div class="d-inline-flex align-items-center justify-content-center" style="width:48px;height:48px;border-radius:8px;border:1px dashed rgba(0,0,0,.2);font-size:11px;line-height:1;color:#6c757d;">${escapeHtml(providerLabel)}</div>`;
+
+    host.innerHTML = `
+      <div class="grocy-barcode-robot-card">
+        <span class="mr-2">${previewImageHtml}</span>
+        <span class="grocy-barcode-robot-meta">
+          <span class="small text-muted">${escapeHtml(`${providerLabel} - ${sourceName}`)}</span>
+          <span class="font-weight-bold">${escapeHtml(productName)}</span>
+          <span class="small">${escapeHtml(langText('Code-barres', 'Barcode'))}: ${escapeHtml(selection.code)}</span>
+          ${brandName ? `<span class="small">${escapeHtml(langText('Marque', 'Brand'))}: ${escapeHtml(brandName)}</span>` : ''}
+          ${quantityLabel ? `<span class="small">${escapeHtml(langText('Poids/quantité', 'Weight/quantity'))}: ${escapeHtml(quantityLabel)}</span>` : ''}
+          ${brandHint ? `<span class="small">${escapeHtml(t('missing_barcodes_card_brand_hint', { brand: brandHint, source: missingBarcodeBrandSourceLabel(brandSource) }))}</span>` : ''}
+          <span class="small">${escapeHtml(modeLabel)}</span>
+          ${sourceUrl ? `<span class="small"><a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener">${escapeHtml(langText('Ouvrir la fiche source', 'Open source product page'))}</a></span>` : ''}
+          <span class="small text-info">${escapeHtml(t('missing_barcodes_selection_required'))}</span>
+          <span class="grocy-barcode-robot-card-actions">
+            <button
+              type="button"
+              class="btn btn-primary btn-sm"
+              title="${escapeHtml(t('missing_barcodes_select_card_btn'))}"
+              data-missing-barcode-confirm="1"
+              data-product-id="${productId}"
+            >${escapeHtml(t('missing_barcodes_add_barcode_btn'))}</button>
+          </span>
+        </span>
+      </div>
+    `;
+  }
+
+  function renderMissingBarcodesSectionList() {
+    const state = missingBarcodeSectionState();
+    const host = document.getElementById('dash_missing_barcodes_list');
+    if (!host) return;
+
+    const products = Array.isArray(state.products) ? state.products : [];
+    setMissingBarcodesSectionCount(products.length);
+
+    if (products.length === 0) {
+      host.innerHTML = `<div class="small text-muted">${escapeHtml(t('missing_barcodes_status_empty'))}</div>`;
+      return;
+    }
+
+    host.innerHTML = products.map((entry) => {
+      const productId = num(entry.productId);
+      const productName = clean(entry.productName || '') || `${langText('Produit', 'Product')} #${productId}`;
+      const purchaseUnitId = num(entry.purchaseUnitId);
+      const purchaseUnitName = clean(entry.purchaseUnitName || '');
+      const defaultAmount = num(entry.defaultAmount) > 0 ? num(entry.defaultAmount) : 1;
+      const canCreate = entry.canCreate === true && purchaseUnitId > 0;
+      const unitText = canCreate
+        ? t('missing_barcodes_card_purchase_unit', { unit: purchaseUnitName || t('default_na'), id: fmt(purchaseUnitId, 0) })
+        : t('missing_barcodes_card_purchase_unit_missing');
+      return `
+        <div class="dash-missing-barcodes-card" data-missing-barcode-card="${productId}">
+          <div class="dash-missing-barcodes-card-head">
+            <div class="pr-2">
+              <div class="dash-missing-barcodes-card-name">${escapeHtml(productName)}</div>
+              <div class="small text-muted">${escapeHtml(t('missing_barcodes_card_product_id', { id: fmt(productId, 0) }))}</div>
+              <div class="small ${canCreate ? 'text-muted' : 'text-warning'}">${escapeHtml(unitText)}</div>
+            </div>
+            <div class="dash-missing-barcodes-card-actions">
+              <div class="input-group input-group-sm" style="width: 11rem;">
+                <div class="input-group-prepend">
+                  <span class="input-group-text">${escapeHtml(t('missing_barcodes_amount_label'))}</span>
+                </div>
+                <input
+                  type="number"
+                  min="0.001"
+                  step="0.001"
+                  class="form-control"
+                  data-missing-barcode-amount="1"
+                  data-product-id="${productId}"
+                  value="${escapeHtml(String(defaultAmount))}">
+              </div>
+              <button
+                type="button"
+                class="btn btn-outline-secondary btn-sm"
+                data-missing-barcode-search="1"
+                data-product-id="${productId}"
+                ${canCreate ? '' : 'disabled'}
+              >${escapeHtml(t('missing_barcodes_search_btn'))}</button>
+            </div>
+          </div>
+          <div class="small mt-1 ${canCreate ? 'text-muted' : 'text-warning'}" data-missing-barcode-status="1">${escapeHtml(canCreate ? '' : t('missing_barcodes_status_unit_missing'))}</div>
+          <div class="dash-missing-barcodes-result" data-missing-barcode-result="1"></div>
+        </div>
+      `;
+    }).join('');
+
+    state.pendingSelectionByProductId.forEach((_value, productId) => {
+      renderMissingBarcodesLookupCard(productId);
+    });
+  }
+
+  async function refreshMissingBarcodesSettingsSection() {
+    const state = missingBarcodeSectionState();
+    if (state.loading) return;
+    const refreshButton = document.getElementById('dash_missing_barcodes_refresh');
+    state.loading = true;
+    if (refreshButton) setButtonBusy(refreshButton, true);
+    setMissingBarcodesSectionStatus(t('missing_barcodes_loading'), 'info');
+
+    try {
+      const products = await fetchMissingBarcodeProductsWithoutBarcode();
+      state.products = products;
+      state.byProductId = new Map();
+      products.forEach((entry) => {
+        state.byProductId.set(num(entry.productId), entry);
+      });
+
+      const validIds = new Set(products.map((entry) => num(entry.productId)).filter((id) => id > 0));
+      state.pendingSelectionByProductId.forEach((_value, productId) => {
+        if (!validIds.has(num(productId))) state.pendingSelectionByProductId.delete(productId);
+      });
+      state.brandHintByProductId.forEach((_value, productId) => {
+        if (!validIds.has(num(productId))) state.brandHintByProductId.delete(productId);
+      });
+      state.lookupRunCacheByProductId.forEach((_value, productId) => {
+        if (!validIds.has(num(productId))) state.lookupRunCacheByProductId.delete(productId);
+      });
+
+      state.loadedAt = Date.now();
+      renderMissingBarcodesSectionList();
+      if (products.length > 0) {
+        setMissingBarcodesSectionStatus(t('missing_barcodes_status_loaded', { count: fmt(products.length, 0) }), 'success');
+      } else {
+        setMissingBarcodesSectionStatus(t('missing_barcodes_status_empty'), 'muted');
+      }
+    } catch (error) {
+      const msg = clean(error && error.message ? error.message : String(error)) || t('focus_unknown_error');
+      setMissingBarcodesSectionStatus(t('missing_barcodes_status_refresh_error', { msg }), 'danger');
+    } finally {
+      state.loading = false;
+      if (refreshButton) setButtonBusy(refreshButton, false);
+    }
+  }
+
+  async function fetchMissingBarcodeBrandHint(productIdInput = 0, productNameInput = '') {
+    const productId = num(productIdInput);
+    const state = missingBarcodeSectionState();
+    if (!(productId > 0)) {
+      const fallbackBrand = normalizeBrandLabel(parseBrandCandidateFromProductName(productNameInput));
+      return {
+        brandHint: fallbackBrand,
+        source: fallbackBrand ? 'name' : '',
+      };
+    }
+
+    const cached = state.brandHintByProductId.get(productId);
+    if (cached && typeof cached === 'object') return cached;
+
+    let brandHint = '';
+    let source = '';
+    try {
+      const payload = await fetchJson(`api/userfields/products/${productId}`);
+      brandHint = normalizeBrandLabel(extractUserfieldValueFromPayloadByNames(payload, ['Marque', 'Brand']));
+      if (brandHint) source = 'field';
+    } catch (_err) {}
+
+    if (!brandHint) {
+      brandHint = normalizeBrandLabel(parseBrandCandidateFromProductName(productNameInput));
+      if (brandHint) source = 'name';
+    }
+
+    const out = { brandHint, source };
+    state.brandHintByProductId.set(productId, out);
+    return out;
+  }
+
+  async function fetchMissingBarcodeProductRowById(productIdInput = 0) {
+    const productId = num(productIdInput);
+    if (!(productId > 0)) return null;
+
+    let payload = null;
+    try {
+      payload = await fetchJson(`api/objects/products/${productId}`);
+    } catch (_err) {
+      payload = await fetchJson(`api/objects/products?query[]=id=${productId}`);
+    }
+
+    let rows = extractArray(payload);
+    if (rows.length === 0 && payload && typeof payload === 'object' && pickFirstNumber(payload, ['id']) > 0) {
+      rows = [payload];
+    }
+    if (rows.length === 0) {
+      rows = deepCollectObjects(payload, (row) => pickFirstNumber(row, ['id']) === productId && hasAnyKey(row, ['name']));
+    }
+    return rows.find((row) => pickFirstNumber(row, ['id', 'product_id', 'productId']) === productId) || rows[0] || null;
+  }
+
+  async function productAlreadyHasBarcodeByApi(productIdInput = 0) {
+    const productId = num(productIdInput);
+    if (!(productId > 0)) return false;
+    const payload = await fetchJson(`api/objects/product_barcodes?query[]=product_id=${productId}`);
+    let rows = extractArray(payload);
+    if (rows.length === 0) {
+      rows = deepCollectObjects(
+        payload,
+        (row) => hasAnyKey(row, ['barcode']) && hasAnyKey(row, ['product_id', 'productId'])
+      );
+    }
+    if (rows.length === 0) return false;
+    if (!rows.some((row) => hasAnyKey(row, ['product_id', 'productId']))) {
+      return true;
+    }
+    return rows.some((row) => pickFirstNumber(row, ['product_id', 'productId']) === productId);
+  }
+
+  async function runMissingBarcodeLookup(productIdInput = 0) {
+    const productId = num(productIdInput);
+    if (!(productId > 0)) return;
+    const state = missingBarcodeSectionState();
+    const product = state.byProductId.get(productId);
+    if (!product) return;
+
+    if (product.canCreate !== true || num(product.purchaseUnitId) <= 0) {
+      setMissingBarcodesCardStatus(productId, t('missing_barcodes_status_unit_missing'), 'warning');
+      return;
+    }
+
+    const card = missingBarcodeCardNodeByProductId(productId);
+    const button = card ? card.querySelector('[data-missing-barcode-search]') : null;
+    state.pendingSelectionByProductId.delete(productId);
+    renderMissingBarcodesLookupCard(productId);
+    setMissingBarcodesCardStatus(productId, t('missing_barcodes_status_searching'), 'info');
+    if (button) setButtonBusy(button, true);
+
+    try {
+      const brandInfo = await fetchMissingBarcodeBrandHint(productId, product.productName);
+      let runCache = state.lookupRunCacheByProductId.get(productId);
+      if (!(runCache instanceof Map)) {
+        runCache = new Map();
+        state.lookupRunCacheByProductId.set(productId, runCache);
+      }
+
+      const lookup = await lookupBestBarcodeWithAutoStrategy(product.productName, buildMissingBarcodesLookupSettings(), {
+        limit: 14,
+        runCache,
+        brandHint: clean(brandInfo.brandHint || ''),
+      });
+
+      const best = lookup && lookup.best ? lookup.best : null;
+      const code = clean(best && best.code ? best.code : '');
+      if (!code) {
+        setMissingBarcodesCardStatus(productId, t('missing_barcodes_status_no_result'), 'warning');
+        return;
+      }
+
+      const providerId = normalizeBarcodeLookupProvider(best?.provider || lookup?.lookup?.provider || lookup?.provider || 'openfoodfacts');
+      const selection = {
+        productId,
+        productName: clean(product.productName || ''),
+        purchaseUnitId: num(product.purchaseUnitId),
+        purchaseUnitName: clean(product.purchaseUnitName || ''),
+        amount: num(product.defaultAmount) > 0 ? num(product.defaultAmount) : 1,
+        code,
+        name: clean(best && best.name ? best.name : ''),
+        brand: clean(best && best.brand ? best.brand : ''),
+        quantity: clean(best && best.quantity ? best.quantity : ''),
+        attemptedProviders: Array.isArray(lookup?.attemptedProviders) ? lookup.attemptedProviders : [],
+        providerId,
+        providerLabel: clean(best?.providerLabel || barcodeLookupProviderLabel(providerId)),
+        sourceDisplayName: providerId === 'openproductsfacts' ? 'OPF' : 'OFF',
+        sourceUrl: clean(best?.productUrl || makeFactsProductUrl(code, providerId)),
+        imageUrl: clean(best?.imageUrl || ''),
+        modeUsed: clean(lookup?.modeUsed || ''),
+        brandHint: clean(lookup?.brandHint || brandInfo.brandHint || ''),
+        brandSource: clean(lookup?.brandSource || brandInfo.source || ''),
+      };
+
+      state.pendingSelectionByProductId.set(productId, selection);
+      renderMissingBarcodesLookupCard(productId);
+      setMissingBarcodesCardStatus(productId, t('missing_barcodes_selection_required'), 'info');
+    } catch (error) {
+      const msg = clean(error && error.message ? error.message : String(error)) || t('focus_unknown_error');
+      setMissingBarcodesCardStatus(productId, t('missing_barcodes_lookup_error', { msg }), 'danger');
+    } finally {
+      if (button) setButtonBusy(button, false);
+    }
+  }
+
+  async function runMissingBarcodeCreate(productIdInput = 0) {
+    const productId = num(productIdInput);
+    if (!(productId > 0)) return;
+    const state = missingBarcodeSectionState();
+    const selection = state.pendingSelectionByProductId.get(productId);
+    if (!selection || !clean(selection.code || '')) {
+      setMissingBarcodesCardStatus(productId, t('missing_barcodes_status_stale'), 'warning');
+      return;
+    }
+
+    const amount = readMissingBarcodesCardAmount(productId, selection.amount || 1);
+    if (!(amount > 0)) {
+      setMissingBarcodesCardStatus(productId, t('missing_barcodes_status_invalid_amount'), 'danger');
+      return;
+    }
+
+    const card = missingBarcodeCardNodeByProductId(productId);
+    const button = card ? card.querySelector('[data-missing-barcode-confirm]') : null;
+    if (button) setButtonBusy(button, true);
+    setMissingBarcodesCardStatus(productId, t('missing_barcodes_status_creating'), 'info');
+
+    try {
+      const latest = await fetchMissingBarcodeProductRowById(productId);
+      if (!latest) throw new Error(t('missing_barcodes_status_stale'));
+      if (!missingBarcodeProductIsActive(latest)) throw new Error(t('missing_barcodes_status_inactive'));
+      if (missingBarcodeProductIsParent(latest)) throw new Error(t('missing_barcodes_status_parent'));
+
+      const purchaseUnitId = missingBarcodePurchaseUnitIdFromRow(latest);
+      if (!(purchaseUnitId > 0)) throw new Error(t('missing_barcodes_status_unit_missing'));
+      if (await productAlreadyHasBarcodeByApi(productId)) throw new Error(t('missing_barcodes_status_already_barcode'));
+
+      await createProductBarcodeViaApi({
+        productId,
+        barcode: selection.code,
+        quId: purchaseUnitId,
+        amount,
+        shoppingLocationId: null,
+      });
+
+      state.pendingSelectionByProductId.delete(productId);
+      state.brandHintByProductId.delete(productId);
+      state.lookupRunCacheByProductId.delete(productId);
+      state.byProductId.delete(productId);
+      state.products = state.products.filter((entry) => num(entry.productId) !== productId);
+
+      renderMissingBarcodesSectionList();
+      setMissingBarcodesSectionStatus(t('missing_barcodes_status_created', {
+        code: selection.code,
+        product: selection.productName || `#${productId}`,
+      }), 'success');
+    } catch (error) {
+      const msg = clean(error && error.message ? error.message : String(error)) || t('focus_unknown_error');
+      setMissingBarcodesCardStatus(productId, t('missing_barcodes_lookup_error', { msg }), 'danger');
+    } finally {
+      if (button) setButtonBusy(button, false);
+    }
+  }
+
+  function fillMissingBarcodesSettingsSection() {
+    const section = document.getElementById('dash_missing_barcodes_section');
+    if (!section) return;
+    initOpenFoodFactsToolsStyle();
+    renderMissingBarcodesSectionList();
+    if (!missingBarcodeSectionState().loading) {
+      refreshMissingBarcodesSettingsSection().catch(() => null);
+    }
+  }
   async function runFactsProviderApiTest(providerIdInput = '') {
     const providerId = normalizeBarcodeLookupProvider(providerIdInput);
     const providerLabel = barcodeLookupProviderLabel(providerId);
@@ -11254,6 +11937,7 @@
     fillPhotoSearchSettingsForm();
     fillBarcodeLookupSettingsForm();
     setFactsApiTestStatus('', 'muted');
+    fillMissingBarcodesSettingsSection();
     syncAddonCompatibilitySettingsSection();
     fillAddonUpdateSettingsForm();
     collapseDonneSettingsGroups();
@@ -11429,6 +12113,7 @@
       'dash_facts_test_off',
       'dash_facts_test_opf',
       'dash_facts_test_active',
+      'dash_missing_barcodes_refresh',
       'dash_addon_compat_run',
       'dash_addon_compat_map',
       'dash_addon_compat_reoffer',
@@ -11470,6 +12155,9 @@
     });
     document.querySelectorAll('[data-ai-provider-test]').forEach((button) => {
       if (button) button.disabled = busy;
+    });
+    document.querySelectorAll('#dash_missing_barcodes_section [data-missing-barcode-search], #dash_missing_barcodes_section [data-missing-barcode-confirm], #dash_missing_barcodes_section [data-missing-barcode-amount]').forEach((element) => {
+      if (element) element.disabled = busy;
     });
     if (!busy) {
       syncAddonCompatibilitySettingsSection();
@@ -12682,6 +13370,66 @@
     }
   }
 
+  function ensureMissingBarcodesSettingsSection() {
+    const overlay = document.getElementById('dash_ai_settings_overlay');
+    if (!overlay) return;
+    if (document.getElementById('dash_missing_barcodes_section')) return;
+
+    const body = overlay.querySelector('.card-body');
+    if (!body) return;
+
+    initOpenFoodFactsToolsStyle();
+
+    const section = document.createElement('div');
+    section.id = 'dash_missing_barcodes_section';
+    section.className = 'dash-settings-section p-2 mt-3';
+    section.innerHTML = `
+      <div class="small font-weight-bold mb-2">${t('settings_section_missing_barcodes')}</div>
+      <div class="small text-muted mb-2">${t('missing_barcodes_desc')}</div>
+      <div class="dash-missing-barcodes-tools mb-2">
+        <div id="dash_missing_barcodes_count" class="small text-muted">${t('missing_barcodes_count', { count: '0' })}</div>
+        <button id="dash_missing_barcodes_refresh" type="button" class="btn btn-outline-secondary btn-sm">${t('missing_barcodes_refresh_btn')}</button>
+      </div>
+      <div id="dash_missing_barcodes_list" class="dash-missing-barcodes-list"></div>
+      <div id="dash_missing_barcodes_status" class="small mt-2 text-muted">${t('missing_barcodes_status_idle')}</div>
+    `;
+
+    const factsSection = document.getElementById('dash_facts_api_test_section');
+    if (factsSection && factsSection.parentNode) {
+      factsSection.parentNode.insertBefore(section, factsSection.nextSibling);
+    } else {
+      body.appendChild(section);
+    }
+
+    if (section.dataset.missingBarcodesBound !== '1') {
+      section.dataset.missingBarcodesBound = '1';
+      section.querySelector('#dash_missing_barcodes_refresh')?.addEventListener('click', () => {
+        refreshMissingBarcodesSettingsSection().catch(() => null);
+      });
+      section.querySelector('#dash_missing_barcodes_list')?.addEventListener('click', (event) => {
+        const target = event && event.target;
+        if (!target || typeof target.closest !== 'function') return;
+
+        const searchButton = target.closest('[data-missing-barcode-search]');
+        if (searchButton) {
+          event.preventDefault();
+          const productId = num(searchButton.getAttribute('data-product-id') || 0);
+          if (productId > 0) runMissingBarcodeLookup(productId);
+          return;
+        }
+
+        const confirmButton = target.closest('[data-missing-barcode-confirm]');
+        if (confirmButton) {
+          event.preventDefault();
+          const productId = num(confirmButton.getAttribute('data-product-id') || 0);
+          if (productId > 0) runMissingBarcodeCreate(productId);
+        }
+      });
+    }
+
+    renderMissingBarcodesSectionList();
+    setMissingBarcodesSectionStatus(t('missing_barcodes_status_idle'), 'muted');
+  }
   function ensureAddonCompatibilitySection() {
     const overlay = document.getElementById('dash_ai_settings_overlay');
     if (!overlay) return;
@@ -13012,7 +13760,7 @@
         id: 'product_data',
         tabKey: 'settings_tabs_product_data',
         titleKey: 'settings_group_product_data',
-        sectionIds: ['dash_photo_search_section', 'dash_barcode_lookup_section', 'dash_facts_api_test_section'],
+        sectionIds: ['dash_photo_search_section', 'dash_barcode_lookup_section', 'dash_facts_api_test_section', 'dash_missing_barcodes_section'],
       },
       {
         id: 'providers',
@@ -13431,6 +14179,7 @@
     document.body.appendChild(overlay);
     ensureBarcodeLookupSettingsSection();
     ensureFactsApiTestSection();
+    ensureMissingBarcodesSettingsSection();
     ensurePhotoSearchSettingsSection();
     ensureAddonCompatibilitySection();
     ensureBrandLinksMigrationSettingsSection();
@@ -26047,7 +26796,7 @@
       #grocy-barcode-header-robot-card.d-none {
         display: none !important;
       }
-      #grocy-barcode-header-robot-card .grocy-barcode-robot-card {
+      .grocy-barcode-robot-card {
         display: flex;
         align-items: flex-start;
         gap: 0.55rem;
@@ -26057,21 +26806,21 @@
         padding: 0.48rem 0.58rem;
         background: rgba(7, 18, 28, 0.6);
       }
-      #grocy-barcode-header-robot-card .grocy-barcode-robot-card img {
+      .grocy-barcode-robot-card img {
         width: 52px;
         height: 52px;
         object-fit: cover;
         border-radius: 0.35rem;
         border: 1px solid rgba(255, 255, 255, 0.14);
       }
-      #grocy-barcode-header-robot-card .grocy-barcode-robot-meta {
+      .grocy-barcode-robot-meta {
         display: flex;
         flex-direction: column;
         align-items: flex-start;
         gap: 0.1rem;
         min-width: 0;
       }
-      #grocy-barcode-header-robot-card .grocy-barcode-robot-card-actions {
+      .grocy-barcode-robot-card-actions {
         margin-top: 0.32rem;
       }
       .grocy-product-conversion-fraction-wrap {
@@ -27708,6 +28457,63 @@
     return '';
   }
 
+  function currentProductBrandLookupHint(productNameInput = '') {
+    const nameCandidate = normalizeBrandLabel(productNameInput);
+    const brandInput = productBrandUserfieldInput();
+    const fromFieldRaw = brandInput ? readProductUserfieldInputValue(brandInput) : '';
+    const fromField = normalizeBrandLabel(splitProductBrandValues(fromFieldRaw)[0] || '');
+    const fromName = normalizeBrandLabel(parseBrandCandidateFromProductName(nameCandidate));
+    const brand = fromField || fromName;
+    return {
+      brand: normalizeBrandLabel(brand),
+      fromField,
+      fromName,
+      source: fromField ? 'field' : (fromName ? 'name' : ''),
+    };
+  }
+
+  function buildProductNameBrandFallbackVariants(nameInput = '', brandInput = '', limitInput = 16) {
+    const limit = Math.max(4, Math.min(40, num(limitInput) || 16));
+    const baseVariants = buildProductNameFallbackVariants(nameInput, limit);
+    if (!baseVariants.length) return [];
+    const brand = normalizeBrandLabel(brandInput);
+    if (!brand) return baseVariants;
+    const brandVariants = brandNameVariants(brand);
+    if (!brandVariants.length) return baseVariants;
+
+    const out = [];
+    const seen = new Set();
+    const add = (valueInput = '') => {
+      const value = clean(valueInput || '').replace(/\s+/g, ' ').trim();
+      if (!value || value.length < 2) return;
+      const key = norm(value);
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      out.push(value);
+    };
+
+    const brandNormVariants = brandVariants.map((entry) => norm(entry)).filter((entry) => !!entry);
+    for (const base of baseVariants) {
+      if (out.length >= limit) break;
+      const baseNorm = norm(base);
+      const alreadyHasBrand = brandNormVariants.some((entry) => baseNorm.includes(entry));
+      if (alreadyHasBrand) {
+        add(base);
+        continue;
+      }
+      for (const brandVariant of brandVariants) {
+        add(`${base} - ${brandVariant}`);
+        if (out.length >= limit) break;
+        add(`${base} ${brandVariant}`);
+        if (out.length >= limit) break;
+      }
+    }
+
+    if (out.length === 0) {
+      baseVariants.forEach((entry) => add(entry));
+    }
+    return out.slice(0, limit);
+  }
   async function openBrandLinksManagePage() {
     const entityId = await fetchBrandLinksUserentityId({ ensureCompatibility: true }).catch(() => 0);
     const targetUrl = resolveUserentityUrl(entityId, 'Liens_marques');
@@ -29322,7 +30128,13 @@
   async function lookupBestBarcodeForProductNameFallbackChain(productNameInput, settingsInput = null, optionsInput = {}) {
     const settings = normalizeBarcodeLookupSettings(settingsInput || barcodeLookupSettings());
     const options = optionsInput && typeof optionsInput === 'object' ? optionsInput : {};
-    const variants = buildProductNameFallbackVariants(productNameInput, options.limit || 14);
+    const limit = Math.max(4, Math.min(40, num(options.limit) || 14));
+    const customVariants = Array.isArray(options.variants)
+      ? options.variants.map((entry) => clean(entry)).filter((entry) => !!entry)
+      : [];
+    const variants = customVariants.length > 0
+      ? customVariants.slice(0, limit)
+      : buildProductNameFallbackVariants(productNameInput, limit);
     if (!variants.length) {
       throw new Error(langText('Nom du produit introuvable.', 'Product name not found.'));
     }
@@ -29360,9 +30172,55 @@
     const runCache = options.runCache instanceof Map ? options.runCache : new Map();
     const limit = Math.max(4, Math.min(40, num(options.limit) || 14));
     const errors = [];
+    const searchSettings = {
+      ...settings,
+      autoFallback: true,
+    };
+
+    const requestedBrand = normalizeBrandLabel(options.brandHint || '');
+    const brandContext = requestedBrand
+      ? {
+        brand: requestedBrand,
+        fromField: requestedBrand,
+        fromName: '',
+        source: 'option',
+      }
+      : currentProductBrandLookupHint(productName);
+    const brandHint = normalizeBrandLabel(brandContext.brand || '');
+
+    if (brandHint) {
+      const brandVariants = buildProductNameBrandFallbackVariants(productName, brandHint, limit);
+      if (brandVariants.length > 0) {
+        try {
+          const branded = await lookupBestBarcodeForProductNameFallbackChain(productName, searchSettings, {
+            limit,
+            runCache,
+            variants: brandVariants,
+          });
+          const attemptedProviders = Array.isArray(branded.attemptedProviders) ? branded.attemptedProviders : [];
+          const productsCount = Array.isArray(branded?.lookup?.products) ? branded.lookup.products.length : 0;
+          return {
+            ...branded,
+            modeUsed: 'brand-alternative',
+            usedName: clean(branded.usedName || productName),
+            attemptedProviders,
+            productsCount,
+            errors,
+            brandHint,
+            brandSource: clean(brandContext.source || ''),
+          };
+        } catch (error) {
+          const message = clean(error && error.message ? error.message : String(error)) || t('focus_unknown_error');
+          errors.push(message);
+          if (!isLookupNotFoundMessage(message) && !isFactsProductTypeMismatchDetail(message)) {
+            throw new Error(message);
+          }
+        }
+      }
+    }
 
     try {
-      const alternative = await lookupBestBarcodeForProductNameFallbackChain(productName, settings, { limit, runCache });
+      const alternative = await lookupBestBarcodeForProductNameFallbackChain(productName, searchSettings, { limit, runCache });
       const attemptedProviders = Array.isArray(alternative.attemptedProviders) ? alternative.attemptedProviders : [];
       const productsCount = Array.isArray(alternative?.lookup?.products) ? alternative.lookup.products.length : 0;
       return {
@@ -29372,6 +30230,8 @@
         attemptedProviders,
         productsCount,
         errors,
+        brandHint,
+        brandSource: clean(brandContext.source || ''),
       };
     } catch (error) {
       const message = clean(error && error.message ? error.message : String(error)) || t('focus_unknown_error');
@@ -29382,7 +30242,7 @@
     }
 
     try {
-      const normal = await lookupBestBarcodeForProductName(productName, settings, { runCache });
+      const normal = await lookupBestBarcodeForProductName(productName, searchSettings, { runCache });
       const attemptedProviders = Array.isArray(normal.attemptedProviders) ? normal.attemptedProviders : [];
       const productsCount = Array.isArray(normal?.lookup?.products) ? normal.lookup.products.length : 0;
       return {
@@ -29392,6 +30252,8 @@
         attemptedProviders,
         productsCount,
         errors,
+        brandHint,
+        brandSource: clean(brandContext.source || ''),
       };
     } catch (error) {
       const message = clean(error && error.message ? error.message : String(error)) || t('focus_unknown_error');
@@ -29653,7 +30515,7 @@
       const hasBarcodeTable = !!document.getElementById('barcode-table');
       const currentName = productNameFromMainForm();
       const hasName = currentName !== '';
-      const settings = normalizeBarcodeLookupSettings(barcodeLookupSettings());
+      const settings = { ...normalizeBarcodeLookupSettings(barcodeLookupSettings()), autoFallback: true };
       const productId = currentEditedProductId();
       const purchaseUnitId = currentProductPurchaseUnitId();
 
@@ -29892,7 +30754,7 @@
           return;
         }
 
-        const settings = normalizeBarcodeLookupSettings(barcodeLookupSettings());
+        const settings = { ...normalizeBarcodeLookupSettings(barcodeLookupSettings()), autoFallback: true };
         if (settings.enabled !== true) {
           setHeadingStatus(t('facts_provider_disabled'), 'danger');
           refreshState();
@@ -29914,6 +30776,8 @@
         let sourceProviderId = '';
         let sourceUrl = '';
         let sourceImageUrl = '';
+        let lookupBrandHint = '';
+        let lookupBrandSource = '';
         clearPendingHeaderRobotSelection(true);
         setButtonBusy(robotButton, true);
         setHeadingStatus(
@@ -29932,6 +30796,8 @@
           const { best } = lookup;
           modeUsed = clean(lookup.modeUsed || '');
           usedName = clean(lookup.usedName || '');
+          lookupBrandHint = clean(lookup.brandHint || '');
+          lookupBrandSource = clean(lookup.brandSource || '');
           bestName = clean(best && best.name ? best.name : '');
           bestCode = clean(best && best.code ? best.code : '');
           bestBrand = clean(best?.brand || '');
@@ -29980,7 +30846,9 @@
               `${langText('Source', 'Source')}: ${sourceProviderLabel || t('default_na')}`,
               `${langText('Mode', 'Mode')}: ${modeUsed === 'normal'
                 ? langText('Alternative -> fallback normal (succès normal)', 'Alternative -> normal fallback (normal success)')
-                : langText('Alternative -> fallback normal (succès alternative)', 'Alternative -> normal fallback (alternative success)')}`,
+                : (modeUsed === 'brand-alternative'
+                  ? langText('Alternative + marque (succès alternative)', 'Alternative + brand (alternative success)')
+                  : langText('Alternative -> fallback normal (succès alternative)', 'Alternative -> normal fallback (alternative success)'))}`,
               `${langText('Fournisseurs tentés', 'Attempted providers')}: ${(attemptedProviders.map((id) => barcodeLookupProviderLabel(id)).join(' -> ') || t('default_na'))}`,
             ]
           );
@@ -30006,7 +30874,11 @@
             `${langText('Nom simplifié', 'Simplified name')}: ${usedName || t('default_na')}`,
             `${langText('Mode utilisé', 'Mode used')}: ${modeUsed === 'normal'
               ? langText('fallback normal', 'normal fallback')
-              : (modeUsed === 'alternative' ? langText('alternative', 'alternative') : t('default_na'))}`,
+              : (modeUsed === 'alternative'
+                ? langText('alternative', 'alternative')
+                : (modeUsed === 'brand-alternative' ? langText('alternative + marque', 'alternative + brand') : t('default_na')))}`,
+            `${langText('Marque guide', 'Brand hint')}: ${lookupBrandHint || t('default_na')}`,
+            `${langText('Source marque', 'Brand source')}: ${lookupBrandSource || t('default_na')}`,
             `${langText('Code trouvé', 'Found barcode')}: ${bestCode || t('default_na')}`,
             `${langText('Nom source', 'Source name')}: ${bestName || t('default_na')}`,
             `${langText('Marque', 'Brand')}: ${bestBrand || t('default_na')}`,
@@ -30443,7 +31315,7 @@
         return;
       }
       const hasName = barcodeFormProductName(form) !== '';
-      const settings = normalizeBarcodeLookupSettings(barcodeLookupSettings());
+      const settings = { ...normalizeBarcodeLookupSettings(barcodeLookupSettings()), autoFallback: true };
       robotButton.disabled = !hasName || settings.enabled !== true;
       retryNameButton.classList.toggle('d-none', !canRetryWithNameFallback);
       retryNameButton.disabled = robotButton.disabled;
@@ -30464,7 +31336,7 @@
         return;
       }
 
-      const settings = normalizeBarcodeLookupSettings(barcodeLookupSettings());
+      const settings = { ...normalizeBarcodeLookupSettings(barcodeLookupSettings()), autoFallback: true };
       if (settings.enabled !== true) {
         setBarcodeAutofillStatus(status, t('facts_provider_disabled'), 'warning');
         refreshState();
@@ -30479,6 +31351,8 @@
       let modeUsed = '';
       let attemptedProviders = [];
       let matchedProductsCount = 0;
+      let lookupBrandHint = '';
+      let lookupBrandSource = '';
       canRetryWithNameFallback = false;
       setButtonBusy(robotButton, true);
       if (useFallbackChain) setButtonBusy(retryNameButton, true);
@@ -30505,6 +31379,8 @@
         const best = lookup.best;
         modeUsed = clean(lookup.modeUsed || '');
         usedName = clean(lookup.usedName || '');
+        lookupBrandHint = clean(lookup.brandHint || '');
+        lookupBrandSource = clean(lookup.brandSource || '');
         if (!best) {
           const attempted = Array.isArray(lookup.attemptedProviders) && lookup.attemptedProviders.length > 0
             ? lookup.attemptedProviders.map((providerId) => barcodeLookupProviderLabel(providerId)).join(' -> ')
@@ -30534,8 +31410,8 @@
         setBarcodeAutofillStatus(
           status,
           langText(
-            `Code-barres trouvé via ${attempted}: ${best.code} (${foundName}).${note}${modeUsed === 'normal' ? ' | fallback normal' : ' | alternative'}`,
-            `Barcode found via ${attempted}: ${best.code} (${foundName}).${note}${modeUsed === 'normal' ? ' | normal fallback' : ' | alternative'}`
+            `Code-barres trouvé via ${attempted}: ${best.code} (${foundName}).${note}${modeUsed === 'normal' ? ' | fallback normal' : (modeUsed === 'brand-alternative' ? ' | alternative + marque' : ' | alternative')}`,
+            `Barcode found via ${attempted}: ${best.code} (${foundName}).${note}${modeUsed === 'normal' ? ' | normal fallback' : (modeUsed === 'brand-alternative' ? ' | alternative + brand' : ' | alternative')}`
           ),
           'success'
         );
@@ -30553,11 +31429,13 @@
           `${langText('Mode', 'Mode')}: ${langText('Alternative -> fallback normal', 'Alternative -> normal fallback')}`,
           `${langText('Mode utilisé', 'Mode used')}: ${modeUsed === 'normal'
             ? langText('fallback normal', 'normal fallback')
-            : (modeUsed === 'alternative' ? langText('alternative', 'alternative') : t('default_na'))}`,
+            : (modeUsed === 'alternative' ? langText('alternative', 'alternative') : (modeUsed === 'brand-alternative' ? langText('alternative + marque', 'alternative + brand') : t('default_na')))}`,
           `${langText('Auto', 'Auto')}: ${autoRun ? 'ON' : 'OFF'}`,
           `${langText('Code trouvé', 'Found barcode')}: ${foundCode || t('default_na')}`,
           `${langText('Nom source', 'Source name')}: ${foundName || t('default_na')}`,
           `${langText('Nom simplifié', 'Simplified name')}: ${usedName || t('default_na')}`,
+          `${langText('Marque guide', 'Brand hint')}: ${lookupBrandHint || t('default_na')}`,
+          `${langText('Source marque', 'Brand source')}: ${lookupBrandSource || t('default_na')}`,
           `${langText('Résultats candidats', 'Candidate results')}: ${fmt(matchedProductsCount, 0)}`,
           `${langText('Fournisseurs configurés', 'Configured providers')}: ${orderLabel || t('default_na')}`,
           `${langText('Fournisseurs tentés', 'Attempted providers')}: ${(attemptedProviders.map((id) => barcodeLookupProviderLabel(id)).join(' -> ') || t('default_na'))}`,
@@ -31241,5 +32119,21 @@
   else init();
 })();
 </script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
