@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.0.8] - 2026-03-05
+
+### Added
+- New OFF/OPF setting toggle in ProductHelper parameters for barcode auto-lookup strategy on product edit pages: try with brand first (Brand field then product name parsing), then retry without brand.
+
+### Changed
+- Product edit barcode auto-lookup now respects this setting while keeping OFF+OPF fallback chain behavior.
+
 ## [4.0.7] - 2026-03-05
 
 ### Fixed

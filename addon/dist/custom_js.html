@@ -1990,11 +1990,15 @@
       barcode_lookup_enabled_hint: 'Si désactivé, aucun appel OFF/OPF n’est lancé.',
       barcode_lookup_auto_fallback_label: 'Fallback auto vers le fournisseur secondaire',
       barcode_lookup_auto_fallback_hint: 'En cas d’erreur ou de résultat vide, essaye automatiquement l’autre fournisseur.',
-      barcode_lookup_status_saved: 'Paramètres OFF/OPF enregistrés: 1er {{provider}} | fallback {{fallback}} | API {{enabled}}.',
+      barcode_lookup_brand_first_label: 'Recherche avancée: essayer avec marque puis sans',
+      barcode_lookup_brand_first_hint: 'Page modification produit: essaie d’abord avec marque (champ Marque puis nom du produit), puis sans marque en fallback.',
+      barcode_lookup_status_saved: 'Paramètres OFF/OPF enregistrés: 1er {{provider}} | fallback {{fallback}} | marque {{brandFirst}} | API {{enabled}}.',
       barcode_lookup_enabled_yes: 'active',
       barcode_lookup_enabled_no: 'désactivée',
       barcode_lookup_fallback_yes: 'activé',
       barcode_lookup_fallback_no: 'désactivé',
+      barcode_lookup_brand_first_yes: 'prioritaire',
+      barcode_lookup_brand_first_no: 'ignorée',
       facts_provider_disabled: 'API OFF/OPF désactivée dans les paramètres.',
       settings_section_facts_api_tests: 'Tests API OFF / OPF',
       facts_api_test_hint: 'Teste rapidement l’accessibilité API des deux fournisseurs.',
@@ -2707,11 +2711,15 @@
       barcode_lookup_enabled_hint: 'When disabled, no OFF/OPF call is sent.',
       barcode_lookup_auto_fallback_label: 'Auto-fallback to secondary provider',
       barcode_lookup_auto_fallback_hint: 'On error or empty result, automatically try the other provider.',
-      barcode_lookup_status_saved: 'OFF/OPF settings saved: first {{provider}} | fallback {{fallback}} | API {{enabled}}.',
+      barcode_lookup_brand_first_label: 'Advanced lookup: try with brand then without',
+      barcode_lookup_brand_first_hint: 'Product edit page: first try with brand (Brand field, then product name), then retry without brand as fallback.',
+      barcode_lookup_status_saved: 'OFF/OPF settings saved: first {{provider}} | fallback {{fallback}} | brand {{brandFirst}} | API {{enabled}}.',
       barcode_lookup_enabled_yes: 'enabled',
       barcode_lookup_enabled_no: 'disabled',
       barcode_lookup_fallback_yes: 'enabled',
       barcode_lookup_fallback_no: 'disabled',
+      barcode_lookup_brand_first_yes: 'first',
+      barcode_lookup_brand_first_no: 'ignored',
       facts_provider_disabled: 'OFF/OPF API is disabled in settings.',
       settings_section_facts_api_tests: 'OFF / OPF API tests',
       facts_api_test_hint: 'Quickly test API reachability for both providers.',
@@ -3168,6 +3176,7 @@
       provider: 'openfoodfacts',
       enabled: true,
       autoFallback: true,
+      brandFirst: true,
     };
   }
 
@@ -3176,16 +3185,19 @@
     const raw = rawSettings && typeof rawSettings === 'object' ? rawSettings : {};
     const hasEnabled = Object.prototype.hasOwnProperty.call(raw, 'enabled');
     const hasFallback = Object.prototype.hasOwnProperty.call(raw, 'autoFallback');
+    const hasBrandFirst = Object.prototype.hasOwnProperty.call(raw, 'brandFirst');
     const legacyDisabled = isLegacyBarcodeLookupDisabledValue(raw.provider);
     const provider = legacyDisabled
       ? fallback.provider
       : normalizeBarcodeLookupProvider(raw.provider || fallback.provider);
     const enabled = hasEnabled ? boolish(raw.enabled) : !legacyDisabled;
     const autoFallback = hasFallback ? boolish(raw.autoFallback) : fallback.autoFallback;
+    const brandFirst = hasBrandFirst ? boolish(raw.brandFirst) : fallback.brandFirst;
     return {
       provider,
       enabled,
       autoFallback,
+      brandFirst,
     };
   }
 
@@ -11869,12 +11881,13 @@
   }
 
   function syncBarcodeLookupSettingsHint() {
+    const settings = normalizeBarcodeLookupSettings(barcodeLookupSettings());
     const provider = normalizeBarcodeLookupProvider(
       document.getElementById('dash_barcode_lookup_provider')?.value
-      || barcodeLookupSettings().provider
+      || settings.provider
     );
     const enabledToggle = document.getElementById('dash_barcode_lookup_enabled');
-    const enabled = enabledToggle ? enabledToggle.checked === true : normalizeBarcodeLookupSettings(barcodeLookupSettings()).enabled === true;
+    const enabled = enabledToggle ? enabledToggle.checked === true : settings.enabled === true;
     const hint = document.getElementById('dash_barcode_lookup_hint');
     const orderNote = document.getElementById('dash_barcode_lookup_order_note');
     if (hint) {
@@ -11897,9 +11910,11 @@
     const providerSelect = document.getElementById('dash_barcode_lookup_provider');
     const enabled = document.getElementById('dash_barcode_lookup_enabled');
     const autoFallback = document.getElementById('dash_barcode_lookup_auto_fallback');
+    const brandFirst = document.getElementById('dash_barcode_lookup_brand_first');
     if (providerSelect) providerSelect.value = settings.provider;
     if (enabled) enabled.checked = settings.enabled === true;
     if (autoFallback) autoFallback.checked = settings.autoFallback === true;
+    if (brandFirst) brandFirst.checked = settings.brandFirst !== false;
     syncBarcodeLookupSettingsHint();
     setBarcodeLookupSettingsStatus('', 'muted');
   }
@@ -11909,7 +11924,8 @@
     const provider = normalizeBarcodeLookupProvider(document.getElementById('dash_barcode_lookup_provider')?.value || base.provider);
     const enabled = document.getElementById('dash_barcode_lookup_enabled')?.checked === true;
     const autoFallback = document.getElementById('dash_barcode_lookup_auto_fallback')?.checked === true;
-    return { provider, enabled, autoFallback };
+    const brandFirst = document.getElementById('dash_barcode_lookup_brand_first')?.checked !== false;
+    return { provider, enabled, autoFallback, brandFirst };
   }
 
   function saveBarcodeLookupSettingsFromForm(showGlobalStatus = false) {
@@ -11917,7 +11933,8 @@
     const label = barcodeLookupProviderLabel(saved.provider);
     const enabled = saved.enabled === true ? t('barcode_lookup_enabled_yes') : t('barcode_lookup_enabled_no');
     const fallback = saved.autoFallback === true ? t('barcode_lookup_fallback_yes') : t('barcode_lookup_fallback_no');
-    setBarcodeLookupSettingsStatus(t('barcode_lookup_status_saved', { provider: label, fallback, enabled }), 'success');
+    const brandFirst = saved.brandFirst !== false ? t('barcode_lookup_brand_first_yes') : t('barcode_lookup_brand_first_no');
+    setBarcodeLookupSettingsStatus(t('barcode_lookup_status_saved', { provider: label, fallback, brandFirst, enabled }), 'success');
     if (showGlobalStatus) {
       setAiSettingsStatus(t('settings_section_saved', { section: t('settings_section_barcode_lookup') }), 'success');
     }
@@ -12162,6 +12179,7 @@
       'dash_barcode_lookup_provider',
       'dash_barcode_lookup_enabled',
       'dash_barcode_lookup_auto_fallback',
+      'dash_barcode_lookup_brand_first',
       'dash_barcode_lookup_save',
       'dash_facts_test_off',
       'dash_facts_test_opf',
@@ -13383,6 +13401,13 @@
         </div>
         <div class="small text-muted mt-1">${t('barcode_lookup_auto_fallback_hint')}</div>
       </div>
+      <div class="form-group mb-1">
+        <div class="custom-control custom-switch">
+          <input type="checkbox" class="custom-control-input" id="dash_barcode_lookup_brand_first">
+          <label class="custom-control-label" for="dash_barcode_lookup_brand_first">${t('barcode_lookup_brand_first_label')}</label>
+        </div>
+        <div class="small text-muted mt-1">${t('barcode_lookup_brand_first_hint')}</div>
+      </div>
       <div id="dash_barcode_lookup_status" class="small mt-2 text-muted"></div>
     `;
 
@@ -14307,6 +14332,10 @@
       saveBarcodeLookupSettingsFromForm(false);
     });
     document.getElementById('dash_barcode_lookup_auto_fallback')?.addEventListener('change', () => {
+      syncBarcodeLookupSettingsHint();
+      saveBarcodeLookupSettingsFromForm(false);
+    });
+    document.getElementById('dash_barcode_lookup_brand_first')?.addEventListener('change', () => {
       syncBarcodeLookupSettingsHint();
       saveBarcodeLookupSettingsFromForm(false);
     });
@@ -30245,15 +30274,23 @@
       autoFallback: true,
     };
 
-    const requestedBrand = normalizeBrandLabel(options.brandHint || '');
-    const brandContext = requestedBrand
-      ? {
-        brand: requestedBrand,
-        fromField: requestedBrand,
+    const useBrandFirst = settings.brandFirst !== false && options.useBrandFirst !== false;
+    const requestedBrand = useBrandFirst ? normalizeBrandLabel(options.brandHint || '') : '';
+    const brandContext = useBrandFirst
+      ? (requestedBrand
+        ? {
+          brand: requestedBrand,
+          fromField: requestedBrand,
+          fromName: '',
+          source: 'option',
+        }
+        : currentProductBrandLookupHint(productName))
+      : {
+        brand: '',
+        fromField: '',
         fromName: '',
-        source: 'option',
-      }
-      : currentProductBrandLookupHint(productName);
+        source: '',
+      };
     const brandHint = normalizeBrandLabel(brandContext.brand || '');
 
     if (brandHint) {
