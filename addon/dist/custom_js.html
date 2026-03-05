@@ -11035,13 +11035,32 @@
   }
 
   function enforceAiSettingsOverlayVisibility(overlay) {
-    if (!overlay) return;
-    overlay.classList.remove('d-none');
-    overlay.setAttribute('data-dash-overlay-force-visible', '1');
-    overlay.style.setProperty('display', 'block', 'important');
-    overlay.style.setProperty('visibility', 'visible', 'important');
-    overlay.style.setProperty('opacity', '1', 'important');
-    overlay.style.setProperty('pointer-events', 'auto', 'important');
+    if (!overlay) return false;
+    let changed = false;
+
+    if (overlay.classList.contains('d-none')) {
+      overlay.classList.remove('d-none');
+      changed = true;
+    }
+    if (overlay.getAttribute('data-dash-overlay-force-visible') !== '1') {
+      overlay.setAttribute('data-dash-overlay-force-visible', '1');
+      changed = true;
+    }
+
+    const ensureStyle = (name, value) => {
+      const currentValue = clean(overlay.style.getPropertyValue(name));
+      const currentPriority = clean(overlay.style.getPropertyPriority(name));
+      if (currentValue !== value || currentPriority !== 'important') {
+        overlay.style.setProperty(name, value, 'important');
+        changed = true;
+      }
+    };
+
+    ensureStyle('display', 'block');
+    ensureStyle('visibility', 'visible');
+    ensureStyle('opacity', '1');
+    ensureStyle('pointer-events', 'auto');
+    return changed;
   }
 
   function clearAiSettingsOverlayVisibilityLock(overlay) {
@@ -11071,6 +11090,11 @@
 
     S.aiSettingsOverlayNode = overlay;
     enforceAiSettingsOverlayVisibility(overlay);
+    if (overlay.classList.contains('dash-ai-settings-inline')) {
+      disconnectAiSettingsOverlayObserver();
+      disconnectAiSettingsOverlayRootObserver();
+      return;
+    }
     if (!window.MutationObserver || S.aiSettingsOverlayObserver) return;
 
     S.aiSettingsOverlayObserver = new MutationObserver(() => {
@@ -13519,7 +13543,6 @@
     });
 
     syncAddonCompatibilitySettingsSection();
-    refreshAddonCompatibilityScan({ render: true });
   }
 
   function setBrandLinksMigrationSettingsStatus(textInput = '', toneInput = 'muted') {
@@ -13849,6 +13872,9 @@
       } catch (_err) {
         node.scrollIntoView();
       }
+    }
+    if (target === 'compat' && !S.addonCompatScanPromise && !S.addonCompatScan) {
+      refreshAddonCompatibilityScan({ render: true }).catch(() => null);
     }
   }
 
@@ -14803,9 +14829,9 @@
     const overlay = document.getElementById('dash_ai_settings_overlay');
     const host = document.getElementById('dash_producthelper_settings_page_host');
     if (overlay && host) {
+      setAiSettingsOverlayForcedVisible(false);
       overlay.classList.remove('d-none');
       overlay.classList.add('dash-ai-settings-inline');
-      setAiSettingsOverlayForcedVisible(true);
       host.appendChild(overlay);
       const closeBtn = overlay.querySelector('#dash_ai_close');
       if (closeBtn) closeBtn.classList.add('d-none');
@@ -28279,6 +28305,9 @@
     }
     S.manageDataBrandEnsureTimer = setTimeout(() => {
       S.manageDataBrandEnsureTimer = null;
+      const hasMainEntry = !!document.getElementById('producthelper-manage-brand-link');
+      const hasLinksEntry = !!document.getElementById('producthelper-manage-brand-links-link');
+      if (hasMainEntry && hasLinksEntry) return;
       ensureManageDataBrandEntry().catch(() => null);
       ensureManageDataBrandLinksEntry().catch(() => null);
     }, delay);
@@ -32138,12 +32167,16 @@
     safeRun('loadBarcodeAutofillUiSettings', () => loadBarcodeAutofillUiSettings());
     safeRun('loadPhotoSearchSettings', () => loadPhotoSearchSettings());
     safeRun('loadPhotoSearchProgress', () => loadPhotoSearchProgress());
-    safeRun('scheduleEnsureManageDataBrandEntry', () => scheduleEnsureManageDataBrandEntry(140));
-    safeRun('initManageDataBrandEntryObserver', () => initManageDataBrandEntryObserver());
-    safeRun('runInitialBrandLinkMigration', () => {
-      if (hasInitialBrandLinkMigrationFlag()) return null;
-      return runInitialBrandLinkMigration({ force: false });
-    });
+
+    const isHelperSettingsPage = safeRun('isProductHelperSettingsPage', () => isProductHelperSettingsPage()) === true;
+    if (!isHelperSettingsPage) {
+      safeRun('scheduleEnsureManageDataBrandEntry', () => scheduleEnsureManageDataBrandEntry(140));
+      safeRun('initManageDataBrandEntryObserver', () => initManageDataBrandEntryObserver());
+      safeRun('runInitialBrandLinkMigration', () => {
+        if (hasInitialBrandLinkMigrationFlag()) return null;
+        return runInitialBrandLinkMigration({ force: false });
+      });
+    }
 
     if (safeRun('renderProductHelperSettingsPage', () => renderProductHelperSettingsPage()) === true) {
       return;
@@ -32158,5 +32191,4 @@
   else init();
 })();
 </script>
-
 

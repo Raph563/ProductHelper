@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.0.7] - 2026-03-05
+
+### Fixed
+- Stopped forcing overlay visibility observers on the dedicated ProductHelper settings page (/stocksettings?producthelper=1) to prevent browser freeze loops.
+- Made overlay visibility enforcement idempotent to avoid repeated style/class mutation churn.
+- Kept addon compatibility scan lazy (runs only when opening the Compat tab), reducing startup load on settings page.
+- Skipped manage-data brand observer/migration bootstrapping on the dedicated settings page.
+
 ## [4.0.6] - 2026-03-05
 
 ### Fixed
