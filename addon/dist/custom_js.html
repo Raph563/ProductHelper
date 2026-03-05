@@ -10,7 +10,7 @@
   NERDCORE.registerAddon({
     id: 'producthelper',
     name: 'ProductHelper',
-    version: '4.0.9',
+    version: '4.0.10',
     settingsSection: 'producthelper',
     settingsTitle: 'ProductHelper',
     settingsIcon: 'fa-box-open',
@@ -2045,6 +2045,7 @@
       missing_barcodes_card_product_id: 'ID produit: {{id}}',
       missing_barcodes_card_purchase_unit: 'Unité d\'achat: {{unit}} (#{{id}})',
       missing_barcodes_card_purchase_unit_missing: 'Unité d\'achat manquante',
+      missing_barcodes_card_no_photo: 'Photo indisponible',
       missing_barcodes_card_brand_hint: 'Marque détectée: {{brand}} ({{source}})',
       missing_barcodes_card_brand_source_field: 'champ Marque',
       missing_barcodes_card_brand_source_name: 'nom produit',
@@ -2152,12 +2153,14 @@
       due_date_format_mdy: 'MM/DD/YYYY',
       settings_tabs_general: 'Général',
       settings_tabs_product_data: 'Données produit',
+      settings_tabs_barcodes: 'Codes-barres',
       settings_tabs_visuals: 'Visuels',
       settings_tabs_compat: 'Compatibilité',
       settings_tabs_providers: 'Fournisseurs IA',
       settings_tabs_update: 'Mise à jour',
       settings_group_general: 'Réglages généraux',
       settings_group_product_data: 'Données produit (OFF/OPF)',
+      settings_group_barcodes: 'Codes-barres à ajouter',
       settings_group_visuals: 'Visuels',
       settings_group_compat: 'Compatibilité',
       settings_group_providers: 'Fournisseurs IA',
@@ -2766,6 +2769,7 @@
       missing_barcodes_card_product_id: 'Product ID: {{id}}',
       missing_barcodes_card_purchase_unit: 'Purchase unit: {{unit}} (#{{id}})',
       missing_barcodes_card_purchase_unit_missing: 'Missing purchase unit',
+      missing_barcodes_card_no_photo: 'No photo',
       missing_barcodes_card_brand_hint: 'Detected brand: {{brand}} ({{source}})',
       missing_barcodes_card_brand_source_field: 'Brand field',
       missing_barcodes_card_brand_source_name: 'product name',
@@ -2873,12 +2877,14 @@
       due_date_format_mdy: 'MM/DD/YYYY',
       settings_tabs_general: 'General',
       settings_tabs_product_data: 'Product data',
+      settings_tabs_barcodes: 'Barcodes',
       settings_tabs_visuals: 'Visuals',
       settings_tabs_compat: 'Compatibility',
       settings_tabs_providers: 'AI providers',
       settings_tabs_update: 'Updates',
       settings_group_general: 'General settings',
       settings_group_product_data: 'Product data (OFF/OPF)',
+      settings_group_barcodes: 'Barcodes to add',
       settings_group_visuals: 'Visuals',
       settings_group_compat: 'Compatibility',
       settings_group_providers: 'AI providers',
@@ -7795,34 +7801,121 @@
         flex-wrap: wrap;
       }
       #dash_ai_settings_overlay .dash-missing-barcodes-list {
-        display: flex;
-        flex-direction: column;
-        gap: 0.55rem;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.72rem;
       }
       #dash_ai_settings_overlay .dash-missing-barcodes-card {
-        border: 1px solid rgba(255,255,255,0.13);
-        border-radius: 0.42rem;
-        background: rgba(255,255,255,0.025);
-        padding: 0.52rem 0.58rem;
+        position: relative;
+        overflow: hidden;
+        border: 1px solid rgba(255,255,255,0.18);
+        border-radius: 0.78rem;
+        background: linear-gradient(150deg, rgba(255,255,255,0.05), rgba(255,255,255,0.015));
+        box-shadow: 0 8px 18px rgba(0,0,0,0.18);
+        padding: 0.72rem;
+      }
+      #dash_ai_settings_overlay .dash-missing-barcodes-card::before {
+        content: '';
+        position: absolute;
+        inset: 0 0 auto 0;
+        height: 2px;
+        background: linear-gradient(90deg, rgba(13,110,253,0.8), rgba(32,201,151,0.7));
       }
       #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-head {
+        display: grid;
+        grid-template-columns: 86px minmax(0, 1fr) auto;
+        align-items: start;
+        gap: 0.65rem;
+      }
+      #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-media {
+        width: 86px;
+        height: 86px;
+        border-radius: 0.65rem;
+        overflow: hidden;
+        border: 1px solid rgba(255,255,255,0.2);
+        background: rgba(0,0,0,0.22);
+        box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);
+      }
+      #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-media img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+      #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-photo-placeholder {
+        width: 100%;
+        height: 100%;
         display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 0.45rem;
-        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 0.4rem;
+        color: rgba(224,233,244,0.86);
+        font-size: 0.72rem;
+        line-height: 1.2;
+      }
+      #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-main {
+        min-width: 0;
       }
       #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-name {
         font-weight: 600;
+        font-size: 0.96rem;
+        line-height: 1.28;
+        word-break: break-word;
+      }
+      #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-sub {
+        word-break: break-word;
       }
       #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-actions {
-        display: flex;
-        align-items: center;
+        display: grid;
+        justify-items: end;
         gap: 0.35rem;
-        flex-wrap: wrap;
+      }
+      #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-actions .input-group {
+        width: 11.5rem;
+      }
+      #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-status {
+        min-height: 1.15rem;
       }
       #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-result {
-        margin-top: 0.5rem;
+        margin-top: 0.58rem;
+        padding-top: 0.5rem;
+        border-top: 1px dashed rgba(255,255,255,0.16);
+      }
+      @media (max-width: 991.98px) {
+        #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-head {
+          grid-template-columns: 76px minmax(0, 1fr);
+        }
+        #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-media {
+          width: 76px;
+          height: 76px;
+        }
+        #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-actions {
+          grid-column: 1 / -1;
+          grid-template-columns: minmax(0, 1fr) auto;
+          align-items: center;
+          justify-items: stretch;
+        }
+        #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-actions .input-group {
+          width: 100%;
+          max-width: 16rem;
+        }
+      }
+      @media (max-width: 575.98px) {
+        #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-head {
+          grid-template-columns: 1fr;
+        }
+        #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-media {
+          width: 100%;
+          height: 9rem;
+        }
+        #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-actions {
+          grid-template-columns: 1fr;
+          justify-items: stretch;
+        }
+        #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-actions .btn {
+          width: 100%;
+        }
       }
       #dash_ai_settings_overlay #dash_addon_update_release_choices .btn {
         text-align: left;
@@ -11305,6 +11398,28 @@
     return 1;
   }
 
+  function missingBarcodePictureFileNameFromRow(rowInput = null) {
+    const row = rowInput && typeof rowInput === 'object' ? rowInput : {};
+    return pickFirstString(row, ['picture_file_name', 'pictureFileName', 'picture_filename', 'image_file_name']);
+  }
+
+  function missingBarcodePictureUrlFromFileName(fileNameInput = '') {
+    const fileName = clean(fileNameInput || '');
+    if (!fileName) return '';
+    const encoded = utf8ToBase64(fileName);
+    if (!encoded) return '';
+    return `${apiBaseUrl()}api/files/productpictures/${encoded}?force_serve_as=picture&best_fit_width=320`;
+  }
+
+  function missingBarcodePictureUrlFromRow(rowInput = null) {
+    const row = rowInput && typeof rowInput === 'object' ? rowInput : {};
+    const directUrl = clean(pickFirstString(row, ['picture_url', 'pictureUrl', 'image_url', 'imageUrl']));
+    if (/^https?:\/\//i.test(directUrl)) return directUrl;
+    if (/^api\//i.test(directUrl)) return `${apiBaseUrl()}${directUrl}`;
+    if (directUrl.startsWith('/')) return `${window.location.origin}${directUrl}`;
+    return missingBarcodePictureUrlFromFileName(missingBarcodePictureFileNameFromRow(row));
+  }
+
   function setMissingBarcodesSectionStatus(text = '', level = 'muted') {
     const status = document.getElementById('dash_missing_barcodes_status');
     if (!status) return;
@@ -11412,12 +11527,14 @@
       const purchaseUnitId = missingBarcodePurchaseUnitIdFromRow(row);
       const purchaseUnitName = missingBarcodePurchaseUnitNameFromRow(row, quantityUnitById);
       const defaultAmount = missingBarcodeDefaultAmountFromRow(row);
+      const pictureUrl = missingBarcodePictureUrlFromRow(row);
       list.push({
         productId,
         productName: productName || `${langText('Produit', 'Product')} #${productId}`,
         purchaseUnitId,
         purchaseUnitName,
         defaultAmount,
+        pictureUrl,
         canCreate: purchaseUnitId > 0,
       });
     });
@@ -11517,19 +11634,24 @@
       const purchaseUnitName = clean(entry.purchaseUnitName || '');
       const defaultAmount = num(entry.defaultAmount) > 0 ? num(entry.defaultAmount) : 1;
       const canCreate = entry.canCreate === true && purchaseUnitId > 0;
+      const pictureUrl = clean(entry.pictureUrl || '');
       const unitText = canCreate
         ? t('missing_barcodes_card_purchase_unit', { unit: purchaseUnitName || t('default_na'), id: fmt(purchaseUnitId, 0) })
         : t('missing_barcodes_card_purchase_unit_missing');
+      const pictureHtml = pictureUrl
+        ? `<img src="${escapeHtml(pictureUrl)}" alt="${escapeHtml(productName)}" loading="lazy" referrerpolicy="no-referrer">`
+        : `<div class="dash-missing-barcodes-card-photo-placeholder"><span><i class="fa-solid fa-image mr-1"></i>${escapeHtml(t('missing_barcodes_card_no_photo'))}</span></div>`;
       return `
         <div class="dash-missing-barcodes-card" data-missing-barcode-card="${productId}">
           <div class="dash-missing-barcodes-card-head">
-            <div class="pr-2">
+            <div class="dash-missing-barcodes-card-media">${pictureHtml}</div>
+            <div class="dash-missing-barcodes-card-main">
               <div class="dash-missing-barcodes-card-name">${escapeHtml(productName)}</div>
-              <div class="small text-muted">${escapeHtml(t('missing_barcodes_card_product_id', { id: fmt(productId, 0) }))}</div>
-              <div class="small ${canCreate ? 'text-muted' : 'text-warning'}">${escapeHtml(unitText)}</div>
+              <div class="small text-muted dash-missing-barcodes-card-sub">${escapeHtml(t('missing_barcodes_card_product_id', { id: fmt(productId, 0) }))}</div>
+              <div class="small ${canCreate ? 'text-muted' : 'text-warning'} dash-missing-barcodes-card-sub">${escapeHtml(unitText)}</div>
             </div>
             <div class="dash-missing-barcodes-card-actions">
-              <div class="input-group input-group-sm" style="width: 11rem;">
+              <div class="input-group input-group-sm">
                 <div class="input-group-prepend">
                   <span class="input-group-text">${escapeHtml(t('missing_barcodes_amount_label'))}</span>
                 </div>
@@ -11551,7 +11673,7 @@
               >${escapeHtml(t('missing_barcodes_search_btn'))}</button>
             </div>
           </div>
-          <div class="small mt-1 ${canCreate ? 'text-muted' : 'text-warning'}" data-missing-barcode-status="1">${escapeHtml(canCreate ? '' : t('missing_barcodes_status_unit_missing'))}</div>
+          <div class="small mt-1 ${canCreate ? 'text-muted' : 'text-warning'} dash-missing-barcodes-card-status" data-missing-barcode-status="1">${escapeHtml(canCreate ? '' : t('missing_barcodes_status_unit_missing'))}</div>
           <div class="dash-missing-barcodes-result" data-missing-barcode-result="1"></div>
         </div>
       `;
@@ -13853,7 +13975,13 @@
         id: 'product_data',
         tabKey: 'settings_tabs_product_data',
         titleKey: 'settings_group_product_data',
-        sectionIds: ['dash_photo_search_section', 'dash_barcode_lookup_section', 'dash_facts_api_test_section', 'dash_missing_barcodes_section'],
+        sectionIds: ['dash_photo_search_section'],
+      },
+      {
+        id: 'barcodes',
+        tabKey: 'settings_tabs_barcodes',
+        titleKey: 'settings_group_barcodes',
+        sectionIds: ['dash_barcode_lookup_section', 'dash_facts_api_test_section', 'dash_missing_barcodes_section'],
       },
       {
         id: 'providers',

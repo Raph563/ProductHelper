@@ -1,5 +1,14 @@
 # Changelog
 
+## [4.0.10] - 2026-03-05
+
+### Added
+- New dedicated **Barcodes** settings page in ProductHelper for barcode-related workflows.
+- Missing-barcode product cards now show local product photos when available, with a visual placeholder otherwise.
+
+### Changed
+- Redesigned missing-barcode cards with a richer visual layout (media, metadata, action panel) for faster review and validation.
+
 ## [4.0.9] - 2026-03-05
 
 ### Added
