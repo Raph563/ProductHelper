@@ -10,7 +10,7 @@
   NERDCORE.registerAddon({
     id: 'producthelper',
     name: 'ProductHelper',
-    version: '4.0.10',
+    version: '4.0.11',
     settingsSection: 'producthelper',
     settingsTitle: 'ProductHelper',
     settingsIcon: 'fa-box-open',
@@ -161,13 +161,24 @@
       loading: false,
       loadedAt: 0,
       products: [],
+      ignoredProducts: [],
       byProductId: new Map(),
+      ignoredByProductId: new Map(),
       pendingSelectionByProductId: new Map(),
       brandHintByProductId: new Map(),
       lookupRunCacheByProductId: new Map(),
+      ignoreAvailable: false,
+      ignoreError: '',
       renderLimit: 200,
       renderStep: 200,
     },
+    settingsUiMode: 'basic',
+    missingBarcodeIgnoredEntityId: 0,
+    missingBarcodeIgnoredByProductId: new Map(),
+    missingBarcodeIgnoredActiveByProductId: new Map(),
+    missingBarcodeIgnoredCacheAt: 0,
+    missingBarcodeIgnoredCachePromise: null,
+    missingBarcodeIgnoredLastError: '',
     productFormTypeRulesRefresh: null,
     productFormRuleSyncing: false,
     productUserfieldsSavePatched: false,
@@ -769,6 +780,7 @@
   const UI_STATE_STORAGE_KEY = 'grocy_dash_ui_state_v1';
   const ADDON_COMPATIBILITY_KEY = 'grocy_dash_addon_compatibility_v1';
   const ADDON_UPDATE_KEY = 'grocy_dash_addon_update_v1';
+  const SETTINGS_UI_MODE_STORAGE_KEY = 'grocy_dash_settings_mode_v1';
   const USER_DATA_TRANSFER_SCHEMA = 'statnerd-user-data';
   const USER_DATA_TRANSFER_SCHEMA_VERSION = 1;
   const USER_DATA_TRANSFER_STORAGE_PREFIX = 'grocy_dash_';
@@ -787,6 +799,8 @@
   const STATNERD_DOCS_URL = `${PRODUCTHELPER_REPO_URL}/tree/main/docs`;
   const BARCODE_LOOKUP_PROVIDER_IDS = ['openfoodfacts', 'openproductsfacts'];
   const PHOTO_SEARCH_ENGINE_IDS = ['google', 'duckduckgo', 'bing'];
+  const MISSING_BARCODE_IGNORED_ENTITY_NAME = 'Codes_barres_ignores';
+  const MISSING_BARCODE_IGNORED_CACHE_TTL_MS = 120000;
   const BRAND_LOGO_SOURCES = [
     { id: 'database' },
     { id: 'wikidata' },
@@ -840,6 +854,15 @@
       captionEn: 'Brand links',
       descriptionFr: '',
       descriptionEn: '',
+      showInSidebar: 0,
+      iconCssClass: '',
+    },
+    {
+      name: 'Codes_barres_ignores',
+      captionFr: 'Codes-barres ignorés',
+      captionEn: 'Ignored barcodes',
+      descriptionFr: 'Produits ignorés pour l\'assistant code-barres',
+      descriptionEn: 'Ignored products for barcode assistant',
       showInSidebar: 0,
       iconCssClass: '',
     },
@@ -1124,6 +1147,42 @@
     },
     {
       entity: 'userentity:Liens_marques',
+      name: 'Actif',
+      captionFr: 'Actif',
+      captionEn: 'Active',
+      type: 'checkbox',
+      showAsColumn: 1,
+      sortNumber: 3,
+      inputRequired: 0,
+      defaultValue: '1',
+      config: '',
+    },
+    {
+      entity: 'userentity:Codes_barres_ignores',
+      name: 'Product_id',
+      captionFr: 'Product_id',
+      captionEn: 'Product_id',
+      type: 'number-int',
+      showAsColumn: 1,
+      sortNumber: 1,
+      inputRequired: 1,
+      defaultValue: '',
+      config: '',
+    },
+    {
+      entity: 'userentity:Codes_barres_ignores',
+      name: 'Product_name',
+      captionFr: 'Nom produit',
+      captionEn: 'Product name',
+      type: 'text-single-line',
+      showAsColumn: 1,
+      sortNumber: 2,
+      inputRequired: 0,
+      defaultValue: '',
+      config: '',
+    },
+    {
+      entity: 'userentity:Codes_barres_ignores',
       name: 'Actif',
       captionFr: 'Actif',
       captionEn: 'Active',
@@ -2052,6 +2111,25 @@
       missing_barcodes_card_mode_brand_alternative: 'Mode: alternative + marque',
       missing_barcodes_card_mode_alternative: 'Mode: alternative',
       missing_barcodes_card_mode_normal: 'Mode: fallback normal',
+      missing_barcodes_ignore_btn: 'Ignorer',
+      missing_barcodes_restore_btn: 'Réactiver',
+      missing_barcodes_ignored_title: 'Produits ignorés ({{count}})',
+      missing_barcodes_ignored_desc: 'Ces produits resteront masqués tant qu\'ils ne sont pas réactivés.',
+      missing_barcodes_ignored_empty: 'Aucun produit ignoré.',
+      missing_barcodes_status_ignored: 'Produit ignoré: {{product}}.',
+      missing_barcodes_status_restored: 'Produit réactivé: {{product}}.',
+      missing_barcodes_status_ignore_running: 'Mise à jour ignore en cours...',
+      missing_barcodes_status_restore_running: 'Réactivation en cours...',
+      missing_barcodes_status_ignore_unavailable: 'Fonction ignorer indisponible: {{msg}}',
+      missing_barcodes_status_ignore_disabled: 'Ignorer indisponible (droits API manquants).',
+      missing_barcodes_card_state_ignored: 'Produit ignoré globalement',
+      products_missing_barcodes_banner_text: '{{count}} produit(s) actif(s) sans code-barres.',
+      products_missing_barcodes_banner_btn: 'Ouvrir les codes-barres',
+      settings_mode_label: 'Mode interface paramètres',
+      settings_mode_basic: 'BASIC',
+      settings_mode_advanced: 'ADVANCED',
+      settings_mode_hint_basic: 'Mode BASIC: sections essentielles (données produit + codes-barres).',
+      settings_mode_hint_advanced: 'Mode ADVANCED: toutes les sections visibles.',
       settings_section_photo_search: 'Recherche photo produit',
       photo_search_engine_label: 'Moteur de recherche image',
       photo_search_engine_google: 'Google Images',
@@ -2776,6 +2854,25 @@
       missing_barcodes_card_mode_brand_alternative: 'Mode: alternative + brand',
       missing_barcodes_card_mode_alternative: 'Mode: alternative',
       missing_barcodes_card_mode_normal: 'Mode: normal fallback',
+      missing_barcodes_ignore_btn: 'Ignore',
+      missing_barcodes_restore_btn: 'Restore',
+      missing_barcodes_ignored_title: 'Ignored products ({{count}})',
+      missing_barcodes_ignored_desc: 'These products stay hidden until restored.',
+      missing_barcodes_ignored_empty: 'No ignored product.',
+      missing_barcodes_status_ignored: 'Product ignored: {{product}}.',
+      missing_barcodes_status_restored: 'Product restored: {{product}}.',
+      missing_barcodes_status_ignore_running: 'Updating ignore state...',
+      missing_barcodes_status_restore_running: 'Restoring product...',
+      missing_barcodes_status_ignore_unavailable: 'Ignore unavailable: {{msg}}',
+      missing_barcodes_status_ignore_disabled: 'Ignore unavailable (missing API permissions).',
+      missing_barcodes_card_state_ignored: 'Product globally ignored',
+      products_missing_barcodes_banner_text: '{{count}} active product(s) without barcode.',
+      products_missing_barcodes_banner_btn: 'Open barcode helper',
+      settings_mode_label: 'Settings interface mode',
+      settings_mode_basic: 'BASIC',
+      settings_mode_advanced: 'ADVANCED',
+      settings_mode_hint_basic: 'BASIC mode: essential sections (product data + barcodes).',
+      settings_mode_hint_advanced: 'ADVANCED mode: all sections visible.',
       settings_section_photo_search: 'Product photo search',
       photo_search_engine_label: 'Image search engine',
       photo_search_engine_google: 'Google Images',
@@ -7742,6 +7839,27 @@
         background: #f8f8f8;
         padding: 0.5rem 0.58rem;
       }
+      #dash_ai_settings_overlay #dash_donne_settings_mode {
+        position: sticky;
+        top: 0;
+        z-index: 4;
+        background: rgba(24,29,35,0.95);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 0.5rem;
+        padding: 0.45rem 0.55rem;
+        backdrop-filter: blur(4px);
+        gap: 0.45rem;
+      }
+      #dash_ai_settings_overlay #dash_donne_settings_mode .btn-group {
+        border: 1px solid rgba(255,255,255,0.16);
+        border-radius: 0.45rem;
+        overflow: hidden;
+      }
+      #dash_ai_settings_overlay #dash_donne_settings_mode [data-settings-mode] {
+        min-width: 7.2rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
       #dash_ai_settings_overlay #dash_donne_settings_tabs {
         position: sticky;
         top: 0;
@@ -7881,6 +7999,54 @@
         margin-top: 0.58rem;
         padding-top: 0.5rem;
         border-top: 1px dashed rgba(255,255,255,0.16);
+      }
+      #dash_ai_settings_overlay .dash-missing-barcodes-card.is-ignored {
+        opacity: 0.9;
+        border-style: dashed;
+        border-color: rgba(255,193,7,0.45);
+        background: linear-gradient(150deg, rgba(255,193,7,0.12), rgba(255,255,255,0.01));
+      }
+      #dash_ai_settings_overlay .dash-missing-barcodes-card.is-ignored::before {
+        background: linear-gradient(90deg, rgba(255,193,7,0.86), rgba(13,110,253,0.62));
+      }
+      #dash_ai_settings_overlay .dash-missing-barcodes-ignored {
+        border: 1px dashed rgba(255,255,255,0.23);
+        border-radius: 0.62rem;
+        background: rgba(255,255,255,0.03);
+        padding: 0.52rem 0.62rem;
+      }
+      #dash_ai_settings_overlay .dash-missing-barcodes-ignored > summary {
+        list-style: none;
+        cursor: pointer;
+      }
+      #dash_ai_settings_overlay .dash-missing-barcodes-ignored > summary::-webkit-details-marker {
+        display: none;
+      }
+      #dash_products_missing_barcodes_banner {
+        border: 1px solid rgba(13,110,253,0.38);
+        border-radius: 0.68rem;
+        background: linear-gradient(145deg, rgba(13,110,253,0.16), rgba(32,201,151,0.12));
+        box-shadow: 0 8px 22px rgba(0,0,0,0.18);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.6rem 0.7rem;
+      }
+      #dash_products_missing_barcodes_banner .dash-products-missing-barcodes-text {
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+      @media (max-width: 767.98px) {
+        #dash_products_missing_barcodes_banner {
+          flex-direction: column;
+          align-items: stretch;
+        }
+        #dash_products_missing_barcodes_banner .btn {
+          width: 100%;
+        }
       }
       @media (max-width: 991.98px) {
         #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-head {
@@ -11333,16 +11499,240 @@
       ? S.missingBarcodeSection
       : {};
     if (!(base.byProductId instanceof Map)) base.byProductId = new Map();
+    if (!(base.ignoredByProductId instanceof Map)) base.ignoredByProductId = new Map();
     if (!(base.pendingSelectionByProductId instanceof Map)) base.pendingSelectionByProductId = new Map();
     if (!(base.brandHintByProductId instanceof Map)) base.brandHintByProductId = new Map();
     if (!(base.lookupRunCacheByProductId instanceof Map)) base.lookupRunCacheByProductId = new Map();
     if (!Array.isArray(base.products)) base.products = [];
+    if (!Array.isArray(base.ignoredProducts)) base.ignoredProducts = [];
     base.loading = base.loading === true;
+    base.ignoreAvailable = base.ignoreAvailable === true;
+    base.ignoreError = clean(base.ignoreError || '');
     base.loadedAt = Math.max(0, num(base.loadedAt) || 0);
-    base.renderStep = Math.max(50, Math.floor(num(base.renderStep) || 200));
+    base.renderStep = Math.max(20, Math.floor(num(base.renderStep) || 60));
     base.renderLimit = Math.max(base.renderStep, Math.floor(num(base.renderLimit) || base.renderStep));
     S.missingBarcodeSection = base;
     return base;
+  }
+
+  function sortMissingBarcodeEntries(listInput = []) {
+    const list = Array.isArray(listInput) ? listInput.slice() : [];
+    list.sort((left, right) => {
+      const leftName = clean(left?.productName || '');
+      const rightName = clean(right?.productName || '');
+      const byName = leftName.localeCompare(rightName, undefined, { sensitivity: 'base' });
+      if (byName !== 0) return byName;
+      return num(left?.productId) - num(right?.productId);
+    });
+    return list;
+  }
+
+  function rebuildMissingBarcodeSectionIndexes(stateInput = null) {
+    const state = stateInput && typeof stateInput === 'object' ? stateInput : missingBarcodeSectionState();
+    state.byProductId = new Map();
+    state.ignoredByProductId = new Map();
+    (Array.isArray(state.products) ? state.products : []).forEach((entry) => {
+      const productId = num(entry?.productId);
+      if (productId > 0) state.byProductId.set(productId, entry);
+    });
+    (Array.isArray(state.ignoredProducts) ? state.ignoredProducts : []).forEach((entry) => {
+      const productId = num(entry?.productId);
+      if (productId > 0) state.ignoredByProductId.set(productId, entry);
+    });
+  }
+
+  function missingBarcodeIgnoredEntityRef() {
+    return clean(MISSING_BARCODE_IGNORED_ENTITY_NAME || 'Codes_barres_ignores') || 'Codes_barres_ignores';
+  }
+
+  function missingBarcodeIgnoreErrorMessage(errorInput = null) {
+    const msg = clean(errorInput && errorInput.message ? errorInput.message : String(errorInput || ''));
+    return msg || t('focus_unknown_error');
+  }
+
+  function missingBarcodeIgnoreUnavailableError(messageInput = '') {
+    return t('missing_barcodes_status_ignore_unavailable', {
+      msg: clean(messageInput || t('focus_unknown_error')),
+    });
+  }
+
+  function mergeMissingBarcodeIgnoredCache(entriesInput = [], optionsInput = {}) {
+    const options = optionsInput && typeof optionsInput === 'object' ? optionsInput : {};
+    const entries = Array.isArray(entriesInput) ? entriesInput : [];
+    const byProductId = new Map();
+    entries.forEach((entry) => {
+      const productId = num(entry?.productId);
+      if (!(productId > 0)) return;
+      const existing = byProductId.get(productId);
+      const objectId = num(entry?.objectId);
+      if (!existing || objectId >= num(existing?.objectId)) {
+        byProductId.set(productId, {
+          objectId,
+          productId,
+          productName: clean(entry?.productName || ''),
+          active: entry?.active !== false,
+        });
+      }
+    });
+    const activeByProductId = new Map();
+    byProductId.forEach((entry, productId) => {
+      if (entry?.active !== false) activeByProductId.set(productId, entry);
+    });
+    S.missingBarcodeIgnoredByProductId = byProductId;
+    S.missingBarcodeIgnoredActiveByProductId = activeByProductId;
+    S.missingBarcodeIgnoredCacheAt = Date.now();
+    if (Object.prototype.hasOwnProperty.call(options, 'entityId')) {
+      S.missingBarcodeIgnoredEntityId = Math.max(0, num(options.entityId));
+    }
+    S.missingBarcodeIgnoredLastError = clean(options.error || '');
+    return {
+      available: options.available !== false,
+      error: clean(options.error || ''),
+      entityId: Math.max(0, num(S.missingBarcodeIgnoredEntityId)),
+      byProductId,
+      activeByProductId,
+    };
+  }
+
+  async function fetchMissingBarcodeIgnoredState(optionsInput = {}) {
+    const options = optionsInput && typeof optionsInput === 'object' ? optionsInput : {};
+    const force = options.force === true;
+    const ttlMs = Math.max(0, num(options.ttlMs) || MISSING_BARCODE_IGNORED_CACHE_TTL_MS);
+    const now = Date.now();
+
+    if (!force
+      && S.missingBarcodeIgnoredByProductId instanceof Map
+      && S.missingBarcodeIgnoredActiveByProductId instanceof Map
+      && S.missingBarcodeIgnoredCacheAt > 0
+      && (now - S.missingBarcodeIgnoredCacheAt) < ttlMs
+    ) {
+      return {
+        available: S.missingBarcodeIgnoredEntityId > 0,
+        error: clean(S.missingBarcodeIgnoredLastError || ''),
+        entityId: Math.max(0, num(S.missingBarcodeIgnoredEntityId)),
+        byProductId: S.missingBarcodeIgnoredByProductId,
+        activeByProductId: S.missingBarcodeIgnoredActiveByProductId,
+      };
+    }
+
+    if (!force && S.missingBarcodeIgnoredCachePromise) {
+      return S.missingBarcodeIgnoredCachePromise;
+    }
+
+    S.missingBarcodeIgnoredCachePromise = (async () => {
+      const entityName = missingBarcodeIgnoredEntityRef();
+      try {
+        const entityId = await fetchUserentityIdByName(entityName, { ensureCompatibility: true });
+        if (!(entityId > 0)) {
+          return mergeMissingBarcodeIgnoredCache([], {
+            entityId: 0,
+            available: false,
+            error: t('missing_barcodes_status_ignore_disabled'),
+          });
+        }
+
+        const rows = await fetchUserobjectsByUserentityId(entityId);
+        if (!rows.length) {
+          return mergeMissingBarcodeIgnoredCache([], { entityId, available: true, error: '' });
+        }
+
+        const entries = [];
+        let cursor = 0;
+        const workers = Math.min(4, rows.length);
+        async function worker() {
+          while (cursor < rows.length) {
+            const index = cursor;
+            cursor += 1;
+            const row = rows[index];
+            const objectId = num(row?.id);
+            if (!(objectId > 0)) continue;
+            try {
+              const payload = await fetchJson(`api/userfields/userentity-${entityName}/${objectId}`);
+              const productId = num(extractUserfieldValueFromPayloadByNames(payload, ['Product_id', 'product_id', 'Product id']));
+              if (!(productId > 0)) continue;
+              const productName = clean(extractUserfieldValueFromPayloadByNames(payload, ['Product_name', 'product_name', 'Product name']));
+              const activeRaw = extractUserfieldValueFromPayloadByNames(payload, ['Actif', 'Active']);
+              const active = userfieldValueLooksTruthy(activeRaw);
+              entries.push({ objectId, productId, productName, active });
+            } catch (_err) {}
+          }
+        }
+        await Promise.all(Array.from({ length: workers }, () => worker()));
+        return mergeMissingBarcodeIgnoredCache(entries, { entityId, available: true, error: '' });
+      } catch (error) {
+        const msg = missingBarcodeIgnoreErrorMessage(error);
+        return mergeMissingBarcodeIgnoredCache([], {
+          entityId: 0,
+          available: false,
+          error: missingBarcodeIgnoreUnavailableError(msg),
+        });
+      }
+    })();
+
+    try {
+      return await S.missingBarcodeIgnoredCachePromise;
+    } finally {
+      S.missingBarcodeIgnoredCachePromise = null;
+    }
+  }
+
+  async function upsertMissingBarcodeIgnoredProduct(productIdInput = 0, productNameInput = '', activeInput = true) {
+    const productId = num(productIdInput);
+    if (!(productId > 0)) throw new Error(t('missing_barcodes_status_stale'));
+    const productName = clean(productNameInput || '');
+    const desiredActive = activeInput !== false;
+    const entityName = missingBarcodeIgnoredEntityRef();
+
+    const state = await fetchMissingBarcodeIgnoredState({ force: false, ttlMs: 0 });
+    if (!state?.available || !(num(state.entityId) > 0)) {
+      throw new Error(clean(state?.error || t('missing_barcodes_status_ignore_disabled')));
+    }
+
+    let record = state.byProductId instanceof Map ? state.byProductId.get(productId) : null;
+    let objectId = num(record?.objectId);
+
+    if (!(objectId > 0)) {
+      const creation = await postJson('api/objects/userobjects', { userentity_id: num(state.entityId) });
+      objectId = pickFirstNumber(creation, ['created_object_id', 'inserted_id', 'id', 'object_id']);
+      if (!(objectId > 0)) {
+        const rows = await fetchUserobjectsByUserentityId(num(state.entityId));
+        objectId = rows.reduce((maxId, row) => Math.max(maxId, num(row?.id)), 0);
+      }
+      if (!(objectId > 0)) {
+        throw new Error(t('missing_barcodes_status_ignore_disabled'));
+      }
+    }
+
+    await userfieldApiPutPromise(`userfields/userentity-${entityName}/${objectId}`, {
+      Product_id: String(Math.floor(productId)),
+      Product_name: productName || `${langText('Produit', 'Product')} #${productId}`,
+      Actif: desiredActive ? '1' : '0',
+    });
+
+    const merged = {
+      objectId,
+      productId,
+      productName: productName || clean(record?.productName || ''),
+      active: desiredActive,
+    };
+
+    const byProductId = S.missingBarcodeIgnoredByProductId instanceof Map
+      ? new Map(S.missingBarcodeIgnoredByProductId)
+      : new Map();
+    byProductId.set(productId, merged);
+    const activeByProductId = S.missingBarcodeIgnoredActiveByProductId instanceof Map
+      ? new Map(S.missingBarcodeIgnoredActiveByProductId)
+      : new Map();
+    if (desiredActive) activeByProductId.set(productId, merged);
+    else activeByProductId.delete(productId);
+
+    S.missingBarcodeIgnoredByProductId = byProductId;
+    S.missingBarcodeIgnoredActiveByProductId = activeByProductId;
+    S.missingBarcodeIgnoredEntityId = Math.max(0, num(state.entityId));
+    S.missingBarcodeIgnoredCacheAt = Date.now();
+    S.missingBarcodeIgnoredLastError = '';
+
+    return merged;
   }
 
   function missingBarcodeProductIsActive(rowInput = null) {
@@ -11434,6 +11824,21 @@
     node.textContent = t('missing_barcodes_count', { count: fmt(count, 0) });
   }
 
+  function setMissingBarcodesIgnoreHint(text = '', level = 'muted') {
+    const node = document.getElementById('dash_missing_barcodes_ignore_hint');
+    if (!node) return;
+    const message = clean(text || '');
+    node.className = `small mt-1 text-${level}`;
+    node.textContent = message;
+    node.classList.toggle('d-none', !message);
+  }
+
+  function missingBarcodeIgnoredCardNodeByProductId(productIdInput = 0) {
+    const productId = num(productIdInput);
+    if (!(productId > 0)) return null;
+    return document.querySelector(`#dash_missing_barcodes_ignored_list [data-missing-barcode-ignored-card="${productId}"]`);
+  }
+
   function missingBarcodeCardNodeByProductId(productIdInput = 0) {
     const productId = num(productIdInput);
     if (!(productId > 0)) return null;
@@ -11482,11 +11887,21 @@
     };
   }
 
-  async function fetchMissingBarcodeProductsWithoutBarcode() {
-    const [productsPayload, barcodesPayload, quantityUnitById] = await Promise.all([
+  async function fetchMissingBarcodeProductsWithoutBarcode(optionsInput = {}) {
+    const options = optionsInput && typeof optionsInput === 'object' ? optionsInput : {};
+    const includeUnits = options.includeUnits !== false;
+
+    const [productsPayload, barcodesPayload, quantityUnitById, ignoredState] = await Promise.all([
       fetchJson('api/objects/products'),
       fetchJson('api/objects/product_barcodes'),
-      loadQuantityUnitMapFromApi(),
+      includeUnits ? loadQuantityUnitMapFromApi() : Promise.resolve(new Map()),
+      fetchMissingBarcodeIgnoredState({ force: options.forceIgnored === true }).catch((error) => ({
+        available: false,
+        error: missingBarcodeIgnoreUnavailableError(missingBarcodeIgnoreErrorMessage(error)),
+        byProductId: new Map(),
+        activeByProductId: new Map(),
+        entityId: 0,
+      })),
     ]);
 
     let productRows = extractArray(productsPayload);
@@ -11516,7 +11931,13 @@
       if (!productsById.has(productId)) productsById.set(productId, row);
     });
 
-    const list = [];
+    const ignoredActiveByProductId = ignoredState?.activeByProductId instanceof Map
+      ? ignoredState.activeByProductId
+      : new Map();
+
+    const activeProducts = [];
+    const ignoredProducts = [];
+
     productsById.forEach((row, productId) => {
       if (!missingBarcodeProductIsActive(row)) return;
       if (missingBarcodeProductIsParent(row)) return;
@@ -11525,10 +11946,13 @@
 
       const productName = missingBarcodeProductNameFromRow(row);
       const purchaseUnitId = missingBarcodePurchaseUnitIdFromRow(row);
-      const purchaseUnitName = missingBarcodePurchaseUnitNameFromRow(row, quantityUnitById);
+      const purchaseUnitName = includeUnits
+        ? missingBarcodePurchaseUnitNameFromRow(row, quantityUnitById)
+        : '';
       const defaultAmount = missingBarcodeDefaultAmountFromRow(row);
       const pictureUrl = missingBarcodePictureUrlFromRow(row);
-      list.push({
+      const ignoredRecord = ignoredActiveByProductId.get(productId) || null;
+      const entry = {
         productId,
         productName: productName || `${langText('Produit', 'Product')} #${productId}`,
         purchaseUnitId,
@@ -11536,16 +11960,25 @@
         defaultAmount,
         pictureUrl,
         canCreate: purchaseUnitId > 0,
-      });
+      };
+
+      if (ignoredRecord) {
+        ignoredProducts.push({
+          ...entry,
+          ignoredObjectId: num(ignoredRecord?.objectId),
+          ignoredProductName: clean(ignoredRecord?.productName || ''),
+        });
+      } else {
+        activeProducts.push(entry);
+      }
     });
 
-    list.sort((left, right) => {
-      const byName = clean(left.productName).localeCompare(clean(right.productName), undefined, { sensitivity: 'base' });
-      if (byName !== 0) return byName;
-      return num(left.productId) - num(right.productId);
-    });
-
-    return list;
+    return {
+      activeProducts: sortMissingBarcodeEntries(activeProducts),
+      ignoredProducts: sortMissingBarcodeEntries(ignoredProducts),
+      ignoreAvailable: ignoredState?.available === true,
+      ignoreError: clean(ignoredState?.error || ''),
+    };
   }
 
   function renderMissingBarcodesLookupCard(productIdInput = 0) {
@@ -11609,10 +12042,23 @@
     const host = document.getElementById('dash_missing_barcodes_list');
     const moreWrap = document.getElementById('dash_missing_barcodes_more_wrap');
     const moreNote = document.getElementById('dash_missing_barcodes_more_note');
+    const ignoredWrap = document.getElementById('dash_missing_barcodes_ignored_wrap');
+    const ignoredDetails = document.getElementById('dash_missing_barcodes_ignored_details');
+    const ignoredSummary = document.getElementById('dash_missing_barcodes_ignored_summary');
+    const ignoredHost = document.getElementById('dash_missing_barcodes_ignored_list');
     if (!host) return;
 
     const products = Array.isArray(state.products) ? state.products : [];
+    const ignoredProducts = Array.isArray(state.ignoredProducts) ? state.ignoredProducts : [];
+    const ignoreAvailable = state.ignoreAvailable === true;
+    const ignoreError = clean(state.ignoreError || '');
+
     setMissingBarcodesSectionCount(products.length);
+    if (!ignoreAvailable) {
+      setMissingBarcodesIgnoreHint(ignoreError || t('missing_barcodes_status_ignore_disabled'), 'warning');
+    } else {
+      setMissingBarcodesIgnoreHint('', 'muted');
+    }
 
     if (products.length === 0) {
       const emptyLabel = state.loadedAt > 0
@@ -11621,78 +12067,125 @@
       host.innerHTML = `<div class="small text-muted">${escapeHtml(emptyLabel)}</div>`;
       if (moreWrap) moreWrap.classList.add('d-none');
       if (moreNote) moreNote.textContent = '';
+    } else {
+      const limit = Math.max(state.renderStep, Math.floor(num(state.renderLimit) || state.renderStep));
+      const visibleProducts = products.slice(0, Math.min(limit, products.length));
+
+      host.innerHTML = visibleProducts.map((entry) => {
+        const productId = num(entry.productId);
+        const productName = clean(entry.productName || '') || `${langText('Produit', 'Product')} #${productId}`;
+        const purchaseUnitId = num(entry.purchaseUnitId);
+        const purchaseUnitName = clean(entry.purchaseUnitName || '');
+        const defaultAmount = num(entry.defaultAmount) > 0 ? num(entry.defaultAmount) : 1;
+        const canCreate = entry.canCreate === true && purchaseUnitId > 0;
+        const pictureUrl = clean(entry.pictureUrl || '');
+        const unitText = canCreate
+          ? t('missing_barcodes_card_purchase_unit', { unit: purchaseUnitName || t('default_na'), id: fmt(purchaseUnitId, 0) })
+          : t('missing_barcodes_card_purchase_unit_missing');
+        const pictureHtml = pictureUrl
+          ? `<img src="${escapeHtml(pictureUrl)}" alt="${escapeHtml(productName)}" loading="lazy" referrerpolicy="no-referrer">`
+          : `<div class="dash-missing-barcodes-card-photo-placeholder"><span><i class="fa-solid fa-image mr-1"></i>${escapeHtml(t('missing_barcodes_card_no_photo'))}</span></div>`;
+        return `
+          <div class="dash-missing-barcodes-card" data-missing-barcode-card="${productId}">
+            <div class="dash-missing-barcodes-card-head">
+              <div class="dash-missing-barcodes-card-media">${pictureHtml}</div>
+              <div class="dash-missing-barcodes-card-main">
+                <div class="dash-missing-barcodes-card-name">${escapeHtml(productName)}</div>
+                <div class="small text-muted dash-missing-barcodes-card-sub">${escapeHtml(t('missing_barcodes_card_product_id', { id: fmt(productId, 0) }))}</div>
+                <div class="small ${canCreate ? 'text-muted' : 'text-warning'} dash-missing-barcodes-card-sub">${escapeHtml(unitText)}</div>
+              </div>
+              <div class="dash-missing-barcodes-card-actions">
+                <div class="input-group input-group-sm">
+                  <div class="input-group-prepend">
+                    <span class="input-group-text">${escapeHtml(t('missing_barcodes_amount_label'))}</span>
+                  </div>
+                  <input
+                    type="number"
+                    min="0.001"
+                    step="0.001"
+                    class="form-control"
+                    data-missing-barcode-amount="1"
+                    data-product-id="${productId}"
+                    value="${escapeHtml(String(defaultAmount))}">
+                </div>
+                <div class="d-flex flex-wrap justify-content-end">
+                  <button
+                    type="button"
+                    class="btn btn-outline-secondary btn-sm mr-1 mb-1"
+                    data-missing-barcode-search="1"
+                    data-product-id="${productId}"
+                    ${canCreate ? '' : 'disabled'}
+                  >${escapeHtml(t('missing_barcodes_search_btn'))}</button>
+                  <button
+                    type="button"
+                    class="btn btn-outline-warning btn-sm mb-1"
+                    data-missing-barcode-ignore="1"
+                    data-product-id="${productId}"
+                    ${ignoreAvailable ? '' : 'disabled'}
+                    title="${escapeHtml(ignoreAvailable ? t('missing_barcodes_ignore_btn') : t('missing_barcodes_status_ignore_disabled'))}"
+                  >${escapeHtml(t('missing_barcodes_ignore_btn'))}</button>
+                </div>
+              </div>
+            </div>
+            <div class="small mt-1 ${canCreate ? 'text-muted' : 'text-warning'} dash-missing-barcodes-card-status" data-missing-barcode-status="1">${escapeHtml(canCreate ? '' : t('missing_barcodes_status_unit_missing'))}</div>
+            <div class="dash-missing-barcodes-result" data-missing-barcode-result="1"></div>
+          </div>
+        `;
+      }).join('');
+
+      state.pendingSelectionByProductId.forEach((_value, productId) => {
+        renderMissingBarcodesLookupCard(productId);
+      });
+
+      if (moreWrap) {
+        if (visibleProducts.length < products.length) {
+          moreWrap.classList.remove('d-none');
+        } else {
+          moreWrap.classList.add('d-none');
+        }
+      }
+      if (moreNote) {
+        moreNote.textContent = `${fmt(visibleProducts.length, 0)} / ${fmt(products.length, 0)} ${langText('affichés', 'shown')}`;
+      }
+    }
+
+    if (!ignoredWrap || !ignoredDetails || !ignoredHost || !ignoredSummary) return;
+    if (!ignoredProducts.length) {
+      ignoredWrap.classList.add('d-none');
+      ignoredHost.innerHTML = '';
       return;
     }
 
-    const limit = Math.max(state.renderStep, Math.floor(num(state.renderLimit) || state.renderStep));
-    const visibleProducts = products.slice(0, Math.min(limit, products.length));
-
-    host.innerHTML = visibleProducts.map((entry) => {
+    ignoredWrap.classList.remove('d-none');
+    ignoredSummary.textContent = t('missing_barcodes_ignored_title', { count: fmt(ignoredProducts.length, 0) });
+    ignoredHost.innerHTML = ignoredProducts.map((entry) => {
       const productId = num(entry.productId);
       const productName = clean(entry.productName || '') || `${langText('Produit', 'Product')} #${productId}`;
-      const purchaseUnitId = num(entry.purchaseUnitId);
-      const purchaseUnitName = clean(entry.purchaseUnitName || '');
-      const defaultAmount = num(entry.defaultAmount) > 0 ? num(entry.defaultAmount) : 1;
-      const canCreate = entry.canCreate === true && purchaseUnitId > 0;
       const pictureUrl = clean(entry.pictureUrl || '');
-      const unitText = canCreate
-        ? t('missing_barcodes_card_purchase_unit', { unit: purchaseUnitName || t('default_na'), id: fmt(purchaseUnitId, 0) })
-        : t('missing_barcodes_card_purchase_unit_missing');
       const pictureHtml = pictureUrl
         ? `<img src="${escapeHtml(pictureUrl)}" alt="${escapeHtml(productName)}" loading="lazy" referrerpolicy="no-referrer">`
         : `<div class="dash-missing-barcodes-card-photo-placeholder"><span><i class="fa-solid fa-image mr-1"></i>${escapeHtml(t('missing_barcodes_card_no_photo'))}</span></div>`;
       return `
-        <div class="dash-missing-barcodes-card" data-missing-barcode-card="${productId}">
+        <div class="dash-missing-barcodes-card is-ignored" data-missing-barcode-ignored-card="${productId}">
           <div class="dash-missing-barcodes-card-head">
             <div class="dash-missing-barcodes-card-media">${pictureHtml}</div>
             <div class="dash-missing-barcodes-card-main">
               <div class="dash-missing-barcodes-card-name">${escapeHtml(productName)}</div>
               <div class="small text-muted dash-missing-barcodes-card-sub">${escapeHtml(t('missing_barcodes_card_product_id', { id: fmt(productId, 0) }))}</div>
-              <div class="small ${canCreate ? 'text-muted' : 'text-warning'} dash-missing-barcodes-card-sub">${escapeHtml(unitText)}</div>
+              <div class="small text-warning dash-missing-barcodes-card-sub">${escapeHtml(t('missing_barcodes_card_state_ignored'))}</div>
             </div>
             <div class="dash-missing-barcodes-card-actions">
-              <div class="input-group input-group-sm">
-                <div class="input-group-prepend">
-                  <span class="input-group-text">${escapeHtml(t('missing_barcodes_amount_label'))}</span>
-                </div>
-                <input
-                  type="number"
-                  min="0.001"
-                  step="0.001"
-                  class="form-control"
-                  data-missing-barcode-amount="1"
-                  data-product-id="${productId}"
-                  value="${escapeHtml(String(defaultAmount))}">
-              </div>
               <button
                 type="button"
-                class="btn btn-outline-secondary btn-sm"
-                data-missing-barcode-search="1"
+                class="btn btn-outline-info btn-sm"
+                data-missing-barcode-restore="1"
                 data-product-id="${productId}"
-                ${canCreate ? '' : 'disabled'}
-              >${escapeHtml(t('missing_barcodes_search_btn'))}</button>
+              >${escapeHtml(t('missing_barcodes_restore_btn'))}</button>
             </div>
           </div>
-          <div class="small mt-1 ${canCreate ? 'text-muted' : 'text-warning'} dash-missing-barcodes-card-status" data-missing-barcode-status="1">${escapeHtml(canCreate ? '' : t('missing_barcodes_status_unit_missing'))}</div>
-          <div class="dash-missing-barcodes-result" data-missing-barcode-result="1"></div>
         </div>
       `;
     }).join('');
-
-    state.pendingSelectionByProductId.forEach((_value, productId) => {
-      renderMissingBarcodesLookupCard(productId);
-    });
-
-    if (moreWrap) {
-      if (visibleProducts.length < products.length) {
-        moreWrap.classList.remove('d-none');
-      } else {
-        moreWrap.classList.add('d-none');
-      }
-    }
-    if (moreNote) {
-      moreNote.textContent = `${fmt(visibleProducts.length, 0)} / ${fmt(products.length, 0)} ${langText('affichés', 'shown')}`;
-    }
   }
 
   async function refreshMissingBarcodesSettingsSection() {
@@ -11704,13 +12197,17 @@
     setMissingBarcodesSectionStatus(t('missing_barcodes_loading'), 'info');
 
     try {
-      const products = await fetchMissingBarcodeProductsWithoutBarcode();
+      const snapshot = await fetchMissingBarcodeProductsWithoutBarcode();
+      const products = Array.isArray(snapshot?.activeProducts) ? snapshot.activeProducts : [];
+      const ignoredProducts = Array.isArray(snapshot?.ignoredProducts) ? snapshot.ignoredProducts : [];
+
       state.products = products;
+      state.ignoredProducts = ignoredProducts;
+      state.ignoreAvailable = snapshot?.ignoreAvailable === true;
+      state.ignoreError = clean(snapshot?.ignoreError || '');
       state.renderLimit = state.renderStep;
-      state.byProductId = new Map();
-      products.forEach((entry) => {
-        state.byProductId.set(num(entry.productId), entry);
-      });
+
+      rebuildMissingBarcodeSectionIndexes(state);
 
       const validIds = new Set(products.map((entry) => num(entry.productId)).filter((id) => id > 0));
       state.pendingSelectionByProductId.forEach((_value, productId) => {
@@ -11883,6 +12380,84 @@
     }
   }
 
+  async function runMissingBarcodeIgnore(productIdInput = 0) {
+    const productId = num(productIdInput);
+    if (!(productId > 0)) return;
+    const state = missingBarcodeSectionState();
+    const product = state.byProductId.get(productId);
+    if (!product) return;
+
+    if (state.ignoreAvailable !== true) {
+      const message = clean(state.ignoreError || t('missing_barcodes_status_ignore_disabled'));
+      setMissingBarcodesCardStatus(productId, message, 'warning');
+      return;
+    }
+
+    const card = missingBarcodeCardNodeByProductId(productId);
+    const button = card ? card.querySelector('[data-missing-barcode-ignore]') : null;
+    if (button) setButtonBusy(button, true);
+    setMissingBarcodesCardStatus(productId, t('missing_barcodes_status_ignore_running'), 'info');
+
+    try {
+      await upsertMissingBarcodeIgnoredProduct(productId, clean(product.productName || ''), true);
+      state.pendingSelectionByProductId.delete(productId);
+      state.brandHintByProductId.delete(productId);
+      state.lookupRunCacheByProductId.delete(productId);
+      state.products = state.products.filter((entry) => num(entry.productId) !== productId);
+      state.ignoredProducts = sortMissingBarcodeEntries([
+        ...(Array.isArray(state.ignoredProducts) ? state.ignoredProducts : []),
+        product,
+      ]);
+      rebuildMissingBarcodeSectionIndexes(state);
+      renderMissingBarcodesSectionList();
+      setMissingBarcodesSectionStatus(t('missing_barcodes_status_ignored', {
+        product: clean(product.productName || '') || `#${productId}`,
+      }), 'success');
+    } catch (error) {
+      const msg = clean(error && error.message ? error.message : String(error)) || t('focus_unknown_error');
+      setMissingBarcodesCardStatus(productId, msg, 'danger');
+      state.ignoreAvailable = false;
+      state.ignoreError = missingBarcodeIgnoreUnavailableError(msg);
+      setMissingBarcodesIgnoreHint(state.ignoreError, 'warning');
+    } finally {
+      if (button) setButtonBusy(button, false);
+    }
+  }
+
+  async function runMissingBarcodeRestore(productIdInput = 0) {
+    const productId = num(productIdInput);
+    if (!(productId > 0)) return;
+    const state = missingBarcodeSectionState();
+    const product = state.ignoredByProductId.get(productId);
+    if (!product) return;
+
+    const card = missingBarcodeIgnoredCardNodeByProductId(productId);
+    const button = card ? card.querySelector('[data-missing-barcode-restore]') : null;
+    if (button) setButtonBusy(button, true);
+    setMissingBarcodesSectionStatus(t('missing_barcodes_status_restore_running'), 'info');
+
+    try {
+      await upsertMissingBarcodeIgnoredProduct(productId, clean(product.productName || ''), false);
+      state.ignoredProducts = state.ignoredProducts.filter((entry) => num(entry.productId) !== productId);
+      state.products = sortMissingBarcodeEntries([
+        ...(Array.isArray(state.products) ? state.products : []),
+        product,
+      ]);
+      rebuildMissingBarcodeSectionIndexes(state);
+      renderMissingBarcodesSectionList();
+      setMissingBarcodesSectionStatus(t('missing_barcodes_status_restored', {
+        product: clean(product.productName || '') || `#${productId}`,
+      }), 'success');
+    } catch (error) {
+      const msg = clean(error && error.message ? error.message : String(error)) || t('focus_unknown_error');
+      setMissingBarcodesSectionStatus(msg, 'danger');
+      state.ignoreAvailable = false;
+      state.ignoreError = missingBarcodeIgnoreUnavailableError(msg);
+      setMissingBarcodesIgnoreHint(state.ignoreError, 'warning');
+    } finally {
+      if (button) setButtonBusy(button, false);
+    }
+  }
   async function runMissingBarcodeCreate(productIdInput = 0) {
     const productId = num(productIdInput);
     if (!(productId > 0)) return;
@@ -11925,8 +12500,9 @@
       state.pendingSelectionByProductId.delete(productId);
       state.brandHintByProductId.delete(productId);
       state.lookupRunCacheByProductId.delete(productId);
-      state.byProductId.delete(productId);
       state.products = state.products.filter((entry) => num(entry.productId) !== productId);
+      state.ignoredProducts = state.ignoredProducts.filter((entry) => num(entry.productId) !== productId);
+      rebuildMissingBarcodeSectionIndexes(state);
 
       renderMissingBarcodesSectionList();
       setMissingBarcodesSectionStatus(t('missing_barcodes_status_created', {
@@ -11946,6 +12522,7 @@
     if (!section) return;
     initOpenFoodFactsToolsStyle();
     const state = missingBarcodeSectionState();
+    rebuildMissingBarcodeSectionIndexes(state);
     renderMissingBarcodesSectionList();
     if (Array.isArray(state.products) && state.products.length > 0) {
       setMissingBarcodesSectionStatus(t('missing_barcodes_status_loaded', { count: fmt(state.products.length, 0) }), 'success');
@@ -11953,6 +12530,7 @@
       setMissingBarcodesSectionStatus(t('missing_barcodes_status_idle'), 'muted');
     }
   }
+
   async function runFactsProviderApiTest(providerIdInput = '') {
     const providerId = normalizeBarcodeLookupProvider(providerIdInput);
     const providerLabel = barcodeLookupProviderLabel(providerId);
@@ -12138,7 +12716,16 @@
     fillMissingBarcodesSettingsSection();
     syncAddonCompatibilitySettingsSection();
     fillAddonUpdateSettingsForm();
-    collapseDonneSettingsGroups();
+    if (isProductHelperSettingsPage()) {
+      syncDonneSettingsModeUi(loadSettingsUiMode(), {
+        persist: false,
+        targetGroup: requestedDonneSettingsGroupFromUrl(),
+        openGroup: true,
+        scroll: false,
+      });
+    } else {
+      collapseDonneSettingsGroups();
+    }
     if (status) status.textContent = '';
   }
 
@@ -12303,12 +12890,10 @@
       'dash_ai_save_providers',
       'dash_photo_search_engine',
       'dash_photo_search_off_name_fallback',
-      'dash_photo_search_save',
       'dash_barcode_lookup_provider',
       'dash_barcode_lookup_enabled',
       'dash_barcode_lookup_auto_fallback',
       'dash_barcode_lookup_brand_first',
-      'dash_barcode_lookup_save',
       'dash_facts_test_off',
       'dash_facts_test_opf',
       'dash_facts_test_active',
@@ -12330,7 +12915,6 @@
       'dash_user_data_import',
       'dash_user_data_import_file',
       'dash_due_date_format',
-      'dash_brand_logo_save_section',
       'dash_brand_logo_lookup',
       'dash_brand_logo_fetch_all',
       'dash_brand_logo_save',
@@ -12340,7 +12924,6 @@
       'dash_brand_logo_brand_toggle',
       'dash_brand_logo_source',
       'dash_brand_logo_logodev_token',
-      'dash_group_logo_save_section',
       'dash_group_logo_save',
       'dash_group_logo_clear',
       'dash_group_logo_reset',
@@ -12356,7 +12939,7 @@
     document.querySelectorAll('[data-ai-provider-test]').forEach((button) => {
       if (button) button.disabled = busy;
     });
-    document.querySelectorAll('#dash_missing_barcodes_section [data-missing-barcode-search], #dash_missing_barcodes_section [data-missing-barcode-confirm], #dash_missing_barcodes_section [data-missing-barcode-amount]').forEach((element) => {
+    document.querySelectorAll('#dash_missing_barcodes_section [data-missing-barcode-search], #dash_missing_barcodes_section [data-missing-barcode-confirm], #dash_missing_barcodes_section [data-missing-barcode-ignore], #dash_missing_barcodes_section [data-missing-barcode-restore], #dash_missing_barcodes_section [data-missing-barcode-amount]').forEach((element) => {
       if (element) element.disabled = busy;
     });
     if (!busy) {
@@ -13458,7 +14041,7 @@
     section.innerHTML = `
       <div class="small font-weight-bold mb-2">${t('settings_section_photo_search')}</div>
       <div class="form-row">
-        <div class="form-group col-md-8 mb-2">
+        <div class="form-group col-md-12 mb-2">
           <label for="dash_photo_search_engine" class="mb-1">${t('photo_search_engine_label')}</label>
           <select id="dash_photo_search_engine" class="form-control form-control-sm">
             <option value="google">${t('photo_search_engine_google')}</option>
@@ -13466,9 +14049,6 @@
             <option value="bing">${t('photo_search_engine_bing')}</option>
           </select>
           <div id="dash_photo_search_engine_hint" class="small text-muted mt-1"></div>
-        </div>
-        <div class="form-group col-md-4 mb-2 d-flex justify-content-md-end align-items-end">
-          <button id="dash_photo_search_save" type="button" class="btn btn-outline-secondary btn-sm">${t('settings_save_btn')}</button>
         </div>
       </div>
       <div class="form-group mb-1">
@@ -13502,7 +14082,7 @@
     section.innerHTML = `
       <div class="small font-weight-bold mb-2">${t('settings_section_barcode_lookup')}</div>
       <div class="form-row align-items-end">
-        <div class="form-group col-md-8 mb-2">
+        <div class="form-group col-md-12 mb-2">
           <label for="dash_barcode_lookup_provider" class="mb-1">${t('barcode_lookup_provider_label')}</label>
           <select id="dash_barcode_lookup_provider" class="form-control form-control-sm">
             <option value="openfoodfacts">${t('barcode_lookup_provider_openfoodfacts')}</option>
@@ -13510,9 +14090,6 @@
           </select>
           <div id="dash_barcode_lookup_hint" class="small text-muted mt-1"></div>
           <div id="dash_barcode_lookup_order_note" class="small text-muted mt-1"></div>
-        </div>
-        <div class="form-group col-md-4 mb-2 d-flex justify-content-md-end">
-          <button id="dash_barcode_lookup_save" type="button" class="btn btn-outline-secondary btn-sm">${t('settings_save_btn')}</button>
         </div>
       </div>
       <div class="form-group mb-1">
@@ -13602,6 +14179,14 @@
         <button id="dash_missing_barcodes_more" type="button" class="btn btn-outline-info btn-sm">${escapeHtml(langText('Afficher plus', 'Show more'))}</button>
         <span id="dash_missing_barcodes_more_note" class="small text-muted ml-2"></span>
       </div>
+      <div id="dash_missing_barcodes_ignore_hint" class="small mt-1 text-muted d-none"></div>
+      <div id="dash_missing_barcodes_ignored_wrap" class="mt-2 d-none">
+        <details id="dash_missing_barcodes_ignored_details" class="dash-missing-barcodes-ignored" open>
+          <summary id="dash_missing_barcodes_ignored_summary" class="small font-weight-bold"></summary>
+          <div class="small text-muted mb-2">${t('missing_barcodes_ignored_desc')}</div>
+          <div id="dash_missing_barcodes_ignored_list" class="dash-missing-barcodes-list"></div>
+        </details>
+      </div>
       <div id="dash_missing_barcodes_status" class="small mt-2 text-muted">${t('missing_barcodes_status_idle')}</div>
     `;
 
@@ -13634,12 +14219,29 @@
           return;
         }
 
+        const ignoreButton = target.closest('[data-missing-barcode-ignore]');
+        if (ignoreButton) {
+          event.preventDefault();
+          const productId = num(ignoreButton.getAttribute('data-product-id') || 0);
+          if (productId > 0) runMissingBarcodeIgnore(productId);
+          return;
+        }
+
         const confirmButton = target.closest('[data-missing-barcode-confirm]');
         if (confirmButton) {
           event.preventDefault();
           const productId = num(confirmButton.getAttribute('data-product-id') || 0);
           if (productId > 0) runMissingBarcodeCreate(productId);
         }
+      });
+      section.querySelector('#dash_missing_barcodes_ignored_list')?.addEventListener('click', (event) => {
+        const target = event && event.target;
+        if (!target || typeof target.closest !== 'function') return;
+        const restoreButton = target.closest('[data-missing-barcode-restore]');
+        if (!restoreButton) return;
+        event.preventDefault();
+        const productId = num(restoreButton.getAttribute('data-product-id') || 0);
+        if (productId > 0) runMissingBarcodeRestore(productId);
       });
     }
 
@@ -13972,6 +14574,12 @@
   function donneSettingsGroupDefinitions() {
     return [
       {
+        id: 'general',
+        tabKey: 'settings_tabs_general',
+        titleKey: 'settings_group_general',
+        sectionIds: ['dash_settings_interface_section', 'dash_settings_runtime_section'],
+      },
+      {
         id: 'product_data',
         tabKey: 'settings_tabs_product_data',
         titleKey: 'settings_group_product_data',
@@ -13982,6 +14590,12 @@
         tabKey: 'settings_tabs_barcodes',
         titleKey: 'settings_group_barcodes',
         sectionIds: ['dash_barcode_lookup_section', 'dash_facts_api_test_section', 'dash_missing_barcodes_section'],
+      },
+      {
+        id: 'visuals',
+        tabKey: 'settings_tabs_visuals',
+        titleKey: 'settings_group_visuals',
+        sectionIds: ['dash_settings_brand_logo_section', 'dash_settings_group_logo_section'],
       },
       {
         id: 'providers',
@@ -13999,9 +14613,87 @@
         id: 'updates',
         tabKey: 'settings_tabs_update',
         titleKey: 'settings_group_update',
-        sectionIds: ['dash_addon_update_section'],
+        sectionIds: ['dash_addon_update_section', 'dash_user_data_transfer_section'],
       },
     ];
+  }
+
+  function normalizeSettingsUiMode(valueInput = '') {
+    const mode = clean(valueInput || '').toLowerCase();
+    return mode === 'advanced' ? 'advanced' : 'basic';
+  }
+
+  function loadSettingsUiMode() {
+    if (S.settingsUiMode) {
+      S.settingsUiMode = normalizeSettingsUiMode(S.settingsUiMode);
+      return S.settingsUiMode;
+    }
+    try {
+      const raw = localStorage.getItem(SETTINGS_UI_MODE_STORAGE_KEY);
+      S.settingsUiMode = normalizeSettingsUiMode(raw || 'basic');
+    } catch (_err) {
+      S.settingsUiMode = 'basic';
+    }
+    return S.settingsUiMode;
+  }
+
+  function saveSettingsUiMode(modeInput = '') {
+    const mode = normalizeSettingsUiMode(modeInput || loadSettingsUiMode());
+    S.settingsUiMode = mode;
+    try {
+      localStorage.setItem(SETTINGS_UI_MODE_STORAGE_KEY, mode);
+    } catch (_err) {}
+    return mode;
+  }
+
+  function settingsModeAllowedGroupIds(modeInput = '') {
+    const mode = normalizeSettingsUiMode(modeInput || loadSettingsUiMode());
+    const allIds = donneSettingsGroupDefinitions().map((def) => clean(def.id || '')).filter((id) => !!id);
+    if (mode === 'advanced') return allIds;
+    return ['product_data', 'barcodes'];
+  }
+
+  function currentDonneSettingsActiveTab() {
+    const activeBtn = document.querySelector('#dash_donne_settings_tabs [data-donne-settings-tab].btn-outline-info');
+    return clean(activeBtn?.getAttribute('data-donne-settings-tab') || '');
+  }
+
+  function normalizeDonneSettingsGroupId(valueInput = '') {
+    const raw = clean(valueInput || '').toLowerCase();
+    if (!raw) return '';
+    const defs = donneSettingsGroupDefinitions();
+    const byId = defs.find((def) => clean(def.id || '') === raw);
+    if (byId) return clean(byId.id || '');
+    const byTab = defs.find((def) => clean(def.tabKey || '').toLowerCase() === raw);
+    if (byTab) return clean(byTab.id || '');
+    const aliases = {
+      general: 'general',
+      product: 'product_data',
+      products: 'product_data',
+      product_data: 'product_data',
+      data: 'product_data',
+      barcode: 'barcodes',
+      barcodes: 'barcodes',
+      visual: 'visuals',
+      visuals: 'visuals',
+      provider: 'providers',
+      providers: 'providers',
+      compat: 'compat',
+      compatibility: 'compat',
+      update: 'updates',
+      updates: 'updates',
+    };
+    return aliases[raw] || '';
+  }
+
+  function requestedDonneSettingsGroupFromUrl() {
+    if (!isProductHelperSettingsPage()) return '';
+    try {
+      const params = new URLSearchParams(window.location.search || '');
+      return normalizeDonneSettingsGroupId(params.get('producthelperTab') || '');
+    } catch (_err) {
+      return '';
+    }
   }
 
   function setDonneSettingsActiveTab(tabId = '') {
@@ -14015,13 +14707,16 @@
   }
 
   function openDonneSettingsGroup(groupId = '', { scroll = true } = {}) {
-    const target = clean(groupId || '');
+    const normalizedTarget = normalizeDonneSettingsGroupId(groupId || '');
+    const allowedIds = settingsModeAllowedGroupIds(loadSettingsUiMode());
+    const allowed = new Set(allowedIds);
+    const target = allowed.has(normalizedTarget) ? normalizedTarget : (allowedIds[0] || '');
     if (!target) return;
     const defs = donneSettingsGroupDefinitions();
     defs.forEach((def) => {
       const details = document.getElementById(`dash_donne_group_${def.id}`);
       if (!details) return;
-      details.open = def.id === target;
+      details.open = allowed.has(def.id) && def.id === target;
     });
     setDonneSettingsActiveTab(target);
     const node = document.getElementById(`dash_donne_group_${target}`);
@@ -14074,6 +14769,56 @@
     return details;
   }
 
+  function syncDonneSettingsModeUi(modeInput = '', optionsInput = {}) {
+    const options = optionsInput && typeof optionsInput === 'object' ? optionsInput : {};
+    const mode = normalizeSettingsUiMode(modeInput || loadSettingsUiMode());
+    S.settingsUiMode = mode;
+    if (options.persist !== false) saveSettingsUiMode(mode);
+
+    const allowedIds = settingsModeAllowedGroupIds(mode);
+    const allowedSet = new Set(allowedIds);
+
+    const hint = document.getElementById('dash_donne_settings_mode_hint');
+    if (hint) {
+      hint.textContent = mode === 'advanced' ? t('settings_mode_hint_advanced') : t('settings_mode_hint_basic');
+    }
+
+    document.querySelectorAll('#dash_donne_settings_mode [data-settings-mode]').forEach((button) => {
+      const id = normalizeSettingsUiMode(button?.getAttribute('data-settings-mode') || '');
+      const isActive = id === mode;
+      button.classList.toggle('btn-outline-info', isActive);
+      button.classList.toggle('btn-outline-secondary', !isActive);
+    });
+
+    document.querySelectorAll('#dash_donne_settings_tabs [data-donne-settings-tab]').forEach((button) => {
+      const id = clean(button.getAttribute('data-donne-settings-tab') || '');
+      const visible = allowedSet.has(id);
+      button.classList.toggle('d-none', !visible);
+    });
+
+    const defs = donneSettingsGroupDefinitions();
+    defs.forEach((def) => {
+      const groupNode = document.getElementById(`dash_donne_group_${def.id}`);
+      if (!groupNode) return;
+      const visible = allowedSet.has(def.id);
+      groupNode.classList.toggle('d-none', !visible);
+      if (!visible) groupNode.open = false;
+    });
+
+    let target = normalizeDonneSettingsGroupId(options.targetGroup || '');
+    if (!target || !allowedSet.has(target)) {
+      const current = currentDonneSettingsActiveTab();
+      target = allowedSet.has(current) ? current : '';
+    }
+    if (!target) target = allowedIds[0] || '';
+
+    if (options.openGroup !== false && target) {
+      openDonneSettingsGroup(target, { scroll: options.scroll === true });
+    } else {
+      setDonneSettingsActiveTab(target);
+    }
+  }
+
   function ensureDonneSettingsLayout() {
     const overlay = document.getElementById('dash_ai_settings_overlay');
     if (!overlay) return;
@@ -14083,12 +14828,35 @@
     const defs = donneSettingsGroupDefinitions();
     if (!defs.length) return;
 
+    let modeWrap = document.getElementById('dash_donne_settings_mode');
+    if (!modeWrap) {
+      modeWrap = document.createElement('div');
+      modeWrap.id = 'dash_donne_settings_mode';
+      modeWrap.className = 'd-flex flex-wrap align-items-center mb-2';
+      body.insertBefore(modeWrap, body.firstChild);
+    }
+    modeWrap.innerHTML = `
+      <span class="small text-muted mr-2">${escapeHtml(t('settings_mode_label'))}</span>
+      <div class="btn-group btn-group-sm mr-2" role="group" aria-label="${escapeHtml(t('settings_mode_label'))}">
+        <button type="button" class="btn btn-outline-secondary" data-settings-mode="basic">${escapeHtml(t('settings_mode_basic'))}</button>
+        <button type="button" class="btn btn-outline-secondary" data-settings-mode="advanced">${escapeHtml(t('settings_mode_advanced'))}</button>
+      </div>
+      <span id="dash_donne_settings_mode_hint" class="small text-muted"></span>
+    `;
+    modeWrap.querySelectorAll('[data-settings-mode]').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        const mode = normalizeSettingsUiMode(button.getAttribute('data-settings-mode') || 'basic');
+        syncDonneSettingsModeUi(mode, { persist: true, openGroup: true, scroll: false });
+      });
+    });
+
     let tabs = document.getElementById('dash_donne_settings_tabs');
     if (!tabs) {
       tabs = document.createElement('div');
       tabs.id = 'dash_donne_settings_tabs';
       tabs.className = 'd-flex flex-wrap align-items-center mb-2';
-      body.insertBefore(tabs, body.firstChild);
+      modeWrap.insertAdjacentElement('afterend', tabs);
     }
 
     tabs.innerHTML = defs
@@ -14133,7 +14901,13 @@
       }
     });
 
-    collapseDonneSettingsGroups();
+    const requestedGroup = requestedDonneSettingsGroupFromUrl();
+    syncDonneSettingsModeUi(loadSettingsUiMode(), {
+      persist: false,
+      targetGroup: requestedGroup,
+      openGroup: true,
+      scroll: false,
+    });
   }
 
 
@@ -14345,9 +15119,6 @@
               <button id="dash_brand_logo_zoom" type="button" class="btn btn-outline-info btn-sm py-0 px-2">${t('brand_logo_preview_expand_btn')}</button>
             </div>
             <div id="dash_brand_logo_status" class="small mt-2 text-muted"></div>
-            <div class="d-flex justify-content-end mt-2">
-              <button id="dash_brand_logo_save_section" type="button" class="btn btn-outline-secondary btn-sm">${t('settings_save_btn')}</button>
-            </div>
           </div>
 
           <div id="dash_settings_group_logo_section" class="dash-brand-logo-settings dash-settings-section p-2 mt-3">
@@ -14385,9 +15156,6 @@
               <button id="dash_group_logo_zoom" type="button" class="btn btn-outline-info btn-sm py-0 px-2">${t('group_logo_preview_expand_btn')}</button>
             </div>
             <div id="dash_group_logo_status" class="small mt-2 text-muted"></div>
-            <div class="d-flex justify-content-end mt-2">
-              <button id="dash_group_logo_save_section" type="button" class="btn btn-outline-secondary btn-sm">${t('settings_save_btn')}</button>
-            </div>
           </div>
 
           <div class="small dash-ai-settings-hint">
@@ -14409,8 +15177,8 @@
     ensureBrandLinksMigrationSettingsSection();
     ensureAddonUpdateSettingsSection();
     ensureDonneSettingsAboutInfoBlock();
-    ensureDonneSettingsLayout();
     ensureUserDataTransferSection();
+    ensureDonneSettingsLayout();
 
     document.getElementById('dash_ai_close')?.addEventListener('click', closeAiSettingsOverlay);
     document.getElementById('dash_ai_provider')?.addEventListener('change', () => {
@@ -14454,9 +15222,6 @@
     document.getElementById('dash_photo_search_off_name_fallback')?.addEventListener('change', () => {
       savePhotoSearchSettingsFromForm(false);
     });
-    document.getElementById('dash_photo_search_save')?.addEventListener('click', () => {
-      savePhotoSearchSettingsFromForm(true);
-    });
     document.getElementById('dash_barcode_lookup_provider')?.addEventListener('change', () => {
       syncBarcodeLookupSettingsHint();
       saveBarcodeLookupSettingsFromForm(false);
@@ -14472,9 +15237,6 @@
     document.getElementById('dash_barcode_lookup_brand_first')?.addEventListener('change', () => {
       syncBarcodeLookupSettingsHint();
       saveBarcodeLookupSettingsFromForm(false);
-    });
-    document.getElementById('dash_barcode_lookup_save')?.addEventListener('click', () => {
-      saveBarcodeLookupSettingsFromForm(true);
     });
     document.getElementById('dash_facts_test_off')?.addEventListener('click', () => {
       runFactsProviderApiTest('openfoodfacts');
@@ -14613,10 +15375,6 @@
     document.getElementById('dash_brand_logo_logodev_token')?.addEventListener('change', () => {
       applyBrandLogoSectionFormToState();
       saveBrandLogoSectionSettings(false);
-    });
-    document.getElementById('dash_brand_logo_save_section')?.addEventListener('click', () => {
-      saveBrandLogoSectionSettings(true);
-      renderBrandLogoEditor({ keepUrl: true, keepMenuOpen: isBrandLogoMenuOpen() });
     });
     document.getElementById('dash_brand_logo_preview')?.addEventListener('click', (event) => {
       const target = event && event.target;
@@ -14830,10 +15588,6 @@
     document.getElementById('dash_group_logo_url')?.addEventListener('input', () => {
       renderGroupLogoEditor({ keepUrl: true });
     });
-    document.getElementById('dash_group_logo_save_section')?.addEventListener('click', () => {
-      saveGroupLogoSectionSettings(true);
-      renderGroupLogoEditor({ keepUrl: true, keepMenuOpen: isGroupLogoMenuOpen() });
-    });
     document.getElementById('dash_group_logo_preview')?.addEventListener('click', (event) => {
       const target = event && event.target;
       if (!target || typeof target.closest !== 'function') return;
@@ -14963,6 +15717,49 @@
     }
   }
 
+  function isProductsListPage() {
+    const view = clean(window.Grocy && window.Grocy.View ? window.Grocy.View : '').toLowerCase();
+    if (view === 'products') return true;
+    const path = clean(window.location && window.location.pathname ? window.location.pathname : '').toLowerCase();
+    return /\/products\/?$/.test(path);
+  }
+
+  function productHelperSettingsLink(tabInput = 'barcodes') {
+    const tab = normalizeDonneSettingsGroupId(tabInput) || clean(tabInput || '');
+    let url = '/stocksettings?producthelper=1';
+    if (tab) url += `&producthelperTab=${encodeURIComponent(tab)}`;
+    return url;
+  }
+
+  async function refreshProductsMissingBarcodesBanner() {
+    if (!isProductsListPage()) return;
+    const host = document.getElementById('page-content');
+    if (!host) return;
+
+    const oldBanner = document.getElementById('dash_products_missing_barcodes_banner');
+    if (oldBanner && oldBanner.parentNode) oldBanner.parentNode.removeChild(oldBanner);
+
+    initOpenFoodFactsToolsStyle();
+
+    try {
+      const snapshot = await fetchMissingBarcodeProductsWithoutBarcode({ includeUnits: false });
+      const count = Array.isArray(snapshot && snapshot.activeProducts) ? snapshot.activeProducts.length : 0;
+      if (!(count > 0)) return;
+
+      const banner = document.createElement('div');
+      banner.id = 'dash_products_missing_barcodes_banner';
+      banner.className = 'mb-2';
+      const href = productHelperSettingsLink('barcodes');
+      banner.innerHTML = `
+        <div class="dash-products-missing-barcodes-text">
+          <i class="fa-solid fa-barcode"></i>
+          <span>${escapeHtml(t('products_missing_barcodes_banner_text', { count: fmt(count, 0) }))}</span>
+        </div>
+        <a href="${escapeHtml(href)}" class="btn btn-outline-info btn-sm">${escapeHtml(t('products_missing_barcodes_banner_btn'))}</a>
+      `;
+      host.insertBefore(banner, host.firstChild || null);
+    } catch (_err) {}
+  }
   function isProductHelperSettingsPage() {
     const view = clean(window.Grocy && window.Grocy.View ? window.Grocy.View : '').toLowerCase();
     if (view !== 'stocksettings') return false;
@@ -32636,6 +33433,7 @@
       return;
     }
 
+    safeRun('refreshProductsMissingBarcodesBanner', () => { refreshProductsMissingBarcodesBanner().catch(() => null); });
     safeRun('initProductStatusTerminal', () => initProductStatusTerminal());
     safeRun('initProductImageSearchButton', () => initProductImageSearchButton());
     safeRun('initNormalizedUnitPriceEnhancements', () => initNormalizedUnitPriceEnhancements());

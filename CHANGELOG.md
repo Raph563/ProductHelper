@@ -1,5 +1,16 @@
 # Changelog
 
+## [4.0.11] - 2026-03-05
+
+### Added
+- Added global persistent ignore/restore flow for missing-barcode products, with a dedicated ignored sub-list directly in ProductHelper settings.
+- Added a `/products` banner (shown only when needed) with missing barcode count and direct link to `/stocksettings?producthelper=1&producthelperTab=barcodes`.
+
+### Changed
+- Reworked ProductHelper settings into clear groups with BASIC/ADVANCED mode (BASIC default), and full tab routing support via `producthelperTab`.
+- Removed non-AI “save section” buttons and kept partial autosave behavior for non-AI toggles/selects.
+- Improved missing-barcode cards styling (Grocy look), including ignored-card visual state and restore actions.
+- Kept OFF/OPF barcode lookup strategy with brand-first then fallback-without-brand behavior in product edit and barcode helper flows.
 ## [4.0.10] - 2026-03-05
 
 ### Added
