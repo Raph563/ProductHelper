@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.0.9] - 2026-03-05
+
+### Added
+- Added normalized unit price hints (/kg for mass units, /L for volume units) in ProductCard price lines (last price and average price), across all interfaces reusing Grocy ProductCard.
+
+### Changed
+- Purchase page price hint now appends normalized unit pricing (/kg or /L) when the base hint is per mass/volume unit.
+
 ## [4.0.8] - 2026-03-05
 
 ### Added
@@ -142,10 +150,3 @@
 - OFF/OPF barcode lookup and guided barcode creation.
 - Product-form helpers including conversion fraction support.
 - Parent product sync safeguards and product status terminal.
-
-
-
-
-
-
-

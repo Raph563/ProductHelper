@@ -10,7 +10,7 @@
   NERDCORE.registerAddon({
     id: 'producthelper',
     name: 'ProductHelper',
-    version: '4.0.6',
+    version: '4.0.9',
     settingsSection: 'producthelper',
     settingsTitle: 'ProductHelper',
     settingsIcon: 'fa-box-open',
@@ -148,8 +148,14 @@
     productEnergyRobotRefresh: null,
     productEnergyRobotObserver: null,
     productBarcodesHeaderRefresh: null,
+    productCardPricePatchInstalled: false,
+    productCardPriceEnhanceTimer: null,
+    productCardPriceFetchToken: 0,
+    productCardPriceCacheById: new Map(),
     productConversionFractionObserver: null,
     barcodeAutofillObserver: null,
+    purchasePriceHintObserver: null,
+    purchasePriceHintObserverNode: null,
     barcodeLookupRunCache: new Map(),
     missingBarcodeSection: {
       loading: false,
@@ -32169,6 +32175,289 @@
     S.productConversionFractionObserver.observe(document.body, { childList: true, subtree: true });
   }
 
+  function detectCurrencySymbolFromText(textInput = '') {
+    const source = clean(textInput || '');
+    if (!source) return currencySymbolForUi();
+    const match = source.match(/[€$£¥]/);
+    return clean(match && match[0] ? match[0] : '') || currencySymbolForUi();
+  }
+
+  function stockUnitLabelFromProductCardDetails(detailsInput = null) {
+    const details = detailsInput && typeof detailsInput === 'object' ? detailsInput : {};
+    return cleanUnitLabel(pickFirstString(details, [
+      'quantity_unit_stock',
+      'qu_name_stock',
+      'stock_quantity_unit_name',
+      'quantity_unit_name',
+      'qu_name',
+    ]));
+  }
+
+  function pricePerStockUnitFromProductCardDetails(priceRawInput = 0, detailsInput = null) {
+    const priceRaw = num(priceRawInput);
+    if (!(priceRaw > 0)) return 0;
+    const details = detailsInput && typeof detailsInput === 'object' ? detailsInput : {};
+    const factor = num(pickFirstNumber(details, [
+      'qu_conversion_factor_price_to_stock',
+      'qu_factor_purchase_to_stock',
+      'price_factor_to_stock',
+    ]));
+    if (factor > 0) return priceRaw / factor;
+    return priceRaw;
+  }
+
+  function normalizedPricePerKgOrLFromProductCardDetails(priceRawInput = 0, detailsInput = null) {
+    const details = detailsInput && typeof detailsInput === 'object' ? detailsInput : {};
+    const stockUnit = stockUnitLabelFromProductCardDetails(details);
+    if (!stockUnit) return null;
+    const stockInfo = describeQuantityUnit(stockUnit);
+    if (!stockInfo || !['mass', 'volume'].includes(stockInfo.domain) || !(num(stockInfo.factor) > 0)) return null;
+    const perStockUnit = pricePerStockUnitFromProductCardDetails(priceRawInput, details);
+    if (!(perStockUnit > 0)) return null;
+    const normalizedValue = perStockUnit * (1000 / num(stockInfo.factor));
+    if (!(normalizedValue > 0)) return null;
+    return {
+      value: normalizedValue,
+      unit: stockInfo.domain === 'mass' ? 'kg' : 'L',
+    };
+  }
+
+  function normalizedPriceSuffixText(priceInput = null, currencySymbolInput = '') {
+    const price = priceInput && typeof priceInput === 'object' ? priceInput : null;
+    if (!price || !(num(price.value) > 0)) return '';
+    const unit = clean(price.unit || '');
+    if (!unit) return '';
+    const currency = clean(currencySymbolInput || '') || currencySymbolForUi();
+    return langText(`≈ ${currency}${fmt(num(price.value), 2)}/${unit}`, `~ ${currency}${fmt(num(price.value), 2)}/${unit}`);
+  }
+
+  function setNodeTextWithNormalizedPriceSuffix(nodeInput, suffixInput = '') {
+    const node = nodeInput && nodeInput.nodeType === 1 ? nodeInput : null;
+    if (!node) return;
+    const suffix = clean(suffixInput || '');
+    const previousSuffix = clean(node.getAttribute('data-ph-normalized-price-suffix') || '');
+    let baseText = clean(node.textContent || '');
+    if (previousSuffix) {
+      const marker = ` | ${previousSuffix}`;
+      if (baseText.endsWith(marker)) {
+        baseText = clean(baseText.slice(0, -marker.length));
+      }
+    }
+    if (!baseText) {
+      node.textContent = '';
+      node.setAttribute('data-ph-normalized-price-suffix', '');
+      return;
+    }
+    if (!suffix) {
+      node.textContent = baseText;
+      node.setAttribute('data-ph-normalized-price-suffix', '');
+      return;
+    }
+    node.textContent = `${baseText} | ${suffix}`;
+    node.setAttribute('data-ph-normalized-price-suffix', suffix);
+  }
+
+  async function productStockDetailsForNormalizedPrice(productIdInput = 0) {
+    const productId = num(productIdInput);
+    if (!(productId > 0)) return null;
+    if (!(S.productCardPriceCacheById instanceof Map)) {
+      S.productCardPriceCacheById = new Map();
+    }
+    const cached = S.productCardPriceCacheById.get(productId);
+    const now = Date.now();
+    if (cached && cached.data && now - num(cached.at) <= 45000) {
+      return cached.data;
+    }
+    const payload = await fetchJson(`api/stock/products/${productId}`);
+    const data = payload && typeof payload === 'object' ? payload : null;
+    if (data) {
+      S.productCardPriceCacheById.set(productId, { at: now, data });
+    }
+    return data;
+  }
+
+  async function applyProductCardNormalizedPriceHints(productIdInput = 0) {
+    const productId = num(productIdInput);
+    if (!(productId > 0)) return;
+
+    const lastNode = document.getElementById('productcard-product-last-price');
+    const avgNode = document.getElementById('productcard-product-average-price');
+    if (!lastNode && !avgNode) return;
+
+    const details = await productStockDetailsForNormalizedPrice(productId);
+    if (!details || typeof details !== 'object') return;
+
+    const fallbackCurrency = detectCurrencySymbolFromText(`${clean(lastNode ? lastNode.textContent : '')} ${clean(avgNode ? avgNode.textContent : '')}`);
+
+    if (lastNode) {
+      const lastPrice = pickFirstNumber(details, ['last_price', 'lastPrice']);
+      const normalized = normalizedPricePerKgOrLFromProductCardDetails(lastPrice, details);
+      const currency = detectCurrencySymbolFromText(clean(lastNode.textContent || '')) || fallbackCurrency;
+      setNodeTextWithNormalizedPriceSuffix(lastNode, normalizedPriceSuffixText(normalized, currency));
+    }
+
+    if (avgNode) {
+      const avgPrice = pickFirstNumber(details, ['avg_price', 'average_price', 'stock_average_price']);
+      const normalized = normalizedPricePerKgOrLFromProductCardDetails(avgPrice, details);
+      const currency = detectCurrencySymbolFromText(clean(avgNode.textContent || '')) || fallbackCurrency;
+      setNodeTextWithNormalizedPriceSuffix(avgNode, normalizedPriceSuffixText(normalized, currency));
+    }
+  }
+
+  function scheduleProductCardNormalizedPriceHints(productIdInput = 0, delayMsInput = 120) {
+    const productId = num(productIdInput);
+    if (!(productId > 0)) return;
+    const delayMs = Math.max(20, Math.floor(num(delayMsInput) || 120));
+    if (S.productCardPriceEnhanceTimer) {
+      clearTimeout(S.productCardPriceEnhanceTimer);
+      S.productCardPriceEnhanceTimer = null;
+    }
+    const token = num(S.productCardPriceFetchToken) + 1;
+    S.productCardPriceFetchToken = token;
+    S.productCardPriceEnhanceTimer = setTimeout(async () => {
+      S.productCardPriceEnhanceTimer = null;
+      try {
+        await applyProductCardNormalizedPriceHints(productId);
+      } catch (error) {
+        console.warn('[ProductHelper] ProductCard normalized price update failed', error);
+      }
+    }, delayMs);
+  }
+
+  function selectedProductIdFromFormInputs() {
+    const selectors = ['#product_id', 'select[name="product_id"]', 'input[name="product_id"]'];
+    for (const selector of selectors) {
+      const node = document.querySelector(selector);
+      if (!node) continue;
+      const productId = num(node.value || node.getAttribute('value') || 0);
+      if (productId > 0) return productId;
+    }
+    return 0;
+  }
+
+  function initProductCardNormalizedPricePatch(attemptInput = 0) {
+    const attempt = Math.max(0, Math.floor(num(attemptInput) || 0));
+    const productCard = window && window.Grocy && window.Grocy.Components
+      ? window.Grocy.Components.ProductCard
+      : null;
+    const refresh = productCard && typeof productCard.Refresh === 'function'
+      ? productCard.Refresh
+      : null;
+
+    if (!refresh) {
+      if (attempt < 24) {
+        setTimeout(() => initProductCardNormalizedPricePatch(attempt + 1), 300);
+      }
+      return;
+    }
+
+    if (refresh.__productHelperNormalizedPricePatched === true) {
+      const selectedProductId = selectedProductIdFromFormInputs();
+      if (selectedProductId > 0) scheduleProductCardNormalizedPriceHints(selectedProductId, 70);
+      return;
+    }
+
+    const originalRefresh = refresh;
+    const patchedRefresh = function patchedProductCardRefresh(productIdInput, ...args) {
+      const result = originalRefresh.apply(this, [productIdInput, ...args]);
+      scheduleProductCardNormalizedPriceHints(productIdInput, 120);
+      return result;
+    };
+    patchedRefresh.__productHelperNormalizedPricePatched = true;
+    patchedRefresh.__productHelperOriginalRefresh = originalRefresh;
+
+    productCard.Refresh = patchedRefresh;
+    S.productCardPricePatchInstalled = true;
+
+    const selectedProductId = selectedProductIdFromFormInputs();
+    if (selectedProductId > 0) scheduleProductCardNormalizedPriceHints(selectedProductId, 90);
+  }
+
+  function normalizedPricePerKgOrLFromHintText(textInput = '') {
+    const source = clean(textInput || '');
+    if (!source) return null;
+    const match = source.match(/([0-9]+(?:[.,][0-9]+)?)\s*(?:[€$£¥])?\s*(?:par|per)\s+([^|]+)/i);
+    if (!match) return null;
+    const pricePerUnit = num(match[1]);
+    if (!(pricePerUnit > 0)) return null;
+    const unitLabel = clean((match[2] || '').replace(/[\s.,;:]+$/g, ''));
+    if (!unitLabel) return null;
+    const unitInfo = describeQuantityUnit(unitLabel);
+    if (!unitInfo || !['mass', 'volume'].includes(unitInfo.domain) || !(num(unitInfo.factor) > 0)) return null;
+    const normalizedValue = pricePerUnit * (1000 / num(unitInfo.factor));
+    if (!(normalizedValue > 0)) return null;
+    return {
+      value: normalizedValue,
+      unit: unitInfo.domain === 'mass' ? 'kg' : 'L',
+    };
+  }
+
+  function applyPurchasePriceHintNormalizedPrice() {
+    const hint = document.getElementById('price-hint');
+    if (!hint) return;
+    const text = clean(hint.textContent || '');
+    if (!text) return;
+    const normalized = normalizedPricePerKgOrLFromHintText(text);
+    const currency = detectCurrencySymbolFromText(text);
+    const suffix = normalizedPriceSuffixText(normalized, currency);
+    setNodeTextWithNormalizedPriceSuffix(hint, suffix);
+  }
+
+  function initPurchasePriceHintNormalizedPrice() {
+    const hint = document.getElementById('price-hint');
+    if (!hint) {
+      if (S.purchasePriceHintObserver) {
+        try { S.purchasePriceHintObserver.disconnect(); } catch (_err) {}
+        S.purchasePriceHintObserver = null;
+        S.purchasePriceHintObserverNode = null;
+      }
+      return;
+    }
+
+    if (S.purchasePriceHintObserverNode !== hint) {
+      if (S.purchasePriceHintObserver) {
+        try { S.purchasePriceHintObserver.disconnect(); } catch (_err) {}
+      }
+      S.purchasePriceHintObserver = null;
+      S.purchasePriceHintObserverNode = hint;
+    }
+
+    if (!S.purchasePriceHintObserver && window.MutationObserver) {
+      S.purchasePriceHintObserver = new MutationObserver(() => {
+        applyPurchasePriceHintNormalizedPrice();
+      });
+      S.purchasePriceHintObserver.observe(hint, { childList: true, subtree: true, characterData: true });
+    }
+
+    const watchSelectors = [
+      '#price',
+      '#amount',
+      '#qu_id',
+      '#product_id',
+      'input[name="price_type"]',
+      'input[name="amount"]',
+      'select[name="qu_id"]',
+      'select[name="product_id"]',
+    ];
+    watchSelectors.forEach((selector) => {
+      document.querySelectorAll(selector).forEach((node) => {
+        if (!node || node.dataset.phNormalizedPriceHintBound === '1') return;
+        node.dataset.phNormalizedPriceHintBound = '1';
+        node.addEventListener('input', () => setTimeout(() => applyPurchasePriceHintNormalizedPrice(), 0));
+        node.addEventListener('change', () => setTimeout(() => applyPurchasePriceHintNormalizedPrice(), 0));
+      });
+    });
+
+    applyPurchasePriceHintNormalizedPrice();
+  }
+
+  function initNormalizedUnitPriceEnhancements() {
+    initProductCardNormalizedPricePatch();
+    initPurchasePriceHintNormalizedPrice();
+    setTimeout(() => {
+      try { initPurchasePriceHintNormalizedPrice(); } catch (_err) {}
+    }, 450);
+  }
   function initProductOpenFoodFactsEnhancements() {
     patchUserfieldsFormSaveForProductForm();
     initProductFormTypeRules();
@@ -32221,6 +32510,7 @@
 
     safeRun('initProductStatusTerminal', () => initProductStatusTerminal());
     safeRun('initProductImageSearchButton', () => initProductImageSearchButton());
+    safeRun('initNormalizedUnitPriceEnhancements', () => initNormalizedUnitPriceEnhancements());
     safeRun('initProductOpenFoodFactsEnhancements', () => initProductOpenFoodFactsEnhancements());
   }
 
@@ -32228,4 +32518,3 @@
   else init();
 })();
 </script>
-
