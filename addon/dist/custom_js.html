@@ -10,7 +10,7 @@
   NERDCORE.registerAddon({
     id: 'producthelper',
     name: 'ProductHelper',
-    version: '4.0.5',
+    version: '4.0.6',
     settingsSection: 'producthelper',
     settingsTitle: 'ProductHelper',
     settingsIcon: 'fa-box-open',
@@ -159,6 +159,8 @@
       pendingSelectionByProductId: new Map(),
       brandHintByProductId: new Map(),
       lookupRunCacheByProductId: new Map(),
+      renderLimit: 200,
+      renderStep: 200,
     },
     productFormTypeRulesRefresh: null,
     productFormRuleSyncing: false,
@@ -11202,6 +11204,8 @@
     if (!Array.isArray(base.products)) base.products = [];
     base.loading = base.loading === true;
     base.loadedAt = Math.max(0, num(base.loadedAt) || 0);
+    base.renderStep = Math.max(50, Math.floor(num(base.renderStep) || 200));
+    base.renderLimit = Math.max(base.renderStep, Math.floor(num(base.renderLimit) || base.renderStep));
     S.missingBarcodeSection = base;
     return base;
   }
@@ -11444,17 +11448,27 @@
   function renderMissingBarcodesSectionList() {
     const state = missingBarcodeSectionState();
     const host = document.getElementById('dash_missing_barcodes_list');
+    const moreWrap = document.getElementById('dash_missing_barcodes_more_wrap');
+    const moreNote = document.getElementById('dash_missing_barcodes_more_note');
     if (!host) return;
 
     const products = Array.isArray(state.products) ? state.products : [];
     setMissingBarcodesSectionCount(products.length);
 
     if (products.length === 0) {
-      host.innerHTML = `<div class="small text-muted">${escapeHtml(t('missing_barcodes_status_empty'))}</div>`;
+      const emptyLabel = state.loadedAt > 0
+        ? t('missing_barcodes_status_empty')
+        : t('missing_barcodes_status_idle');
+      host.innerHTML = `<div class="small text-muted">${escapeHtml(emptyLabel)}</div>`;
+      if (moreWrap) moreWrap.classList.add('d-none');
+      if (moreNote) moreNote.textContent = '';
       return;
     }
 
-    host.innerHTML = products.map((entry) => {
+    const limit = Math.max(state.renderStep, Math.floor(num(state.renderLimit) || state.renderStep));
+    const visibleProducts = products.slice(0, Math.min(limit, products.length));
+
+    host.innerHTML = visibleProducts.map((entry) => {
       const productId = num(entry.productId);
       const productName = clean(entry.productName || '') || `${langText('Produit', 'Product')} #${productId}`;
       const purchaseUnitId = num(entry.purchaseUnitId);
@@ -11504,6 +11518,17 @@
     state.pendingSelectionByProductId.forEach((_value, productId) => {
       renderMissingBarcodesLookupCard(productId);
     });
+
+    if (moreWrap) {
+      if (visibleProducts.length < products.length) {
+        moreWrap.classList.remove('d-none');
+      } else {
+        moreWrap.classList.add('d-none');
+      }
+    }
+    if (moreNote) {
+      moreNote.textContent = `${fmt(visibleProducts.length, 0)} / ${fmt(products.length, 0)} ${langText('affichés', 'shown')}`;
+    }
   }
 
   async function refreshMissingBarcodesSettingsSection() {
@@ -11517,6 +11542,7 @@
     try {
       const products = await fetchMissingBarcodeProductsWithoutBarcode();
       state.products = products;
+      state.renderLimit = state.renderStep;
       state.byProductId = new Map();
       products.forEach((entry) => {
         state.byProductId.set(num(entry.productId), entry);
@@ -11755,9 +11781,12 @@
     const section = document.getElementById('dash_missing_barcodes_section');
     if (!section) return;
     initOpenFoodFactsToolsStyle();
+    const state = missingBarcodeSectionState();
     renderMissingBarcodesSectionList();
-    if (!missingBarcodeSectionState().loading) {
-      refreshMissingBarcodesSettingsSection().catch(() => null);
+    if (Array.isArray(state.products) && state.products.length > 0) {
+      setMissingBarcodesSectionStatus(t('missing_barcodes_status_loaded', { count: fmt(state.products.length, 0) }), 'success');
+    } else {
+      setMissingBarcodesSectionStatus(t('missing_barcodes_status_idle'), 'muted');
     }
   }
   async function runFactsProviderApiTest(providerIdInput = '') {
@@ -12114,6 +12143,7 @@
       'dash_facts_test_opf',
       'dash_facts_test_active',
       'dash_missing_barcodes_refresh',
+      'dash_missing_barcodes_more',
       'dash_addon_compat_run',
       'dash_addon_compat_map',
       'dash_addon_compat_reoffer',
@@ -13391,6 +13421,10 @@
         <button id="dash_missing_barcodes_refresh" type="button" class="btn btn-outline-secondary btn-sm">${t('missing_barcodes_refresh_btn')}</button>
       </div>
       <div id="dash_missing_barcodes_list" class="dash-missing-barcodes-list"></div>
+      <div id="dash_missing_barcodes_more_wrap" class="d-none mt-2">
+        <button id="dash_missing_barcodes_more" type="button" class="btn btn-outline-info btn-sm">${escapeHtml(langText('Afficher plus', 'Show more'))}</button>
+        <span id="dash_missing_barcodes_more_note" class="small text-muted ml-2"></span>
+      </div>
       <div id="dash_missing_barcodes_status" class="small mt-2 text-muted">${t('missing_barcodes_status_idle')}</div>
     `;
 
@@ -13405,6 +13439,11 @@
       section.dataset.missingBarcodesBound = '1';
       section.querySelector('#dash_missing_barcodes_refresh')?.addEventListener('click', () => {
         refreshMissingBarcodesSettingsSection().catch(() => null);
+      });
+      section.querySelector('#dash_missing_barcodes_more')?.addEventListener('click', () => {
+        const state = missingBarcodeSectionState();
+        state.renderLimit = Math.max(state.renderStep, Math.floor(num(state.renderLimit) || state.renderStep)) + state.renderStep;
+        renderMissingBarcodesSectionList();
       });
       section.querySelector('#dash_missing_barcodes_list')?.addEventListener('click', (event) => {
         const target = event && event.target;
@@ -32119,21 +32158,5 @@
   else init();
 })();
 </script>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## [4.0.6] - 2026-03-05
+
+### Fixed
+- ProductHelper settings page performance issue on `/stocksettings?producthelper=1` that could freeze Firefox on large datasets.
+- Missing-barcode section no longer auto-loads full data on page open; loading is now explicit via refresh button.
+- Missing-barcode cards now render progressively with a `Show more` control to avoid DOM overload.
 ## [4.0.5] - 2026-03-05
 
 ### Changed
@@ -120,6 +126,7 @@
 - OFF/OPF barcode lookup and guided barcode creation.
 - Product-form helpers including conversion fraction support.
 - Parent product sync safeguards and product status terminal.
+
 
 
 
