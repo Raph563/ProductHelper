@@ -12029,7 +12029,6 @@
           ${brandHint ? `<span class="small">${escapeHtml(t('missing_barcodes_card_brand_hint', { brand: brandHint, source: missingBarcodeBrandSourceLabel(brandSource) }))}</span>` : ''}
           <span class="small">${escapeHtml(modeLabel)}</span>
           ${sourceUrl ? `<span class="small"><a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener">${escapeHtml(langText('Ouvrir la fiche source', 'Open source product page'))}</a></span>` : ''}
-          <span class="small text-info">${escapeHtml(t('missing_barcodes_selection_required'))}</span>
           <span class="grocy-barcode-robot-card-actions">
             <button
               type="button"
@@ -12399,7 +12398,7 @@
       state.pendingSelectionByProductId.set(productId, selection);
       state.lookupBusyByProductId.delete(productId);
       renderMissingBarcodesLookupCard(productId);
-      setMissingBarcodesCardStatus(productId, t('missing_barcodes_selection_required'), 'info');
+      setMissingBarcodesCardStatus(productId, '', 'muted');
     } catch (error) {
       if (num(state.lookupRequestIdByProductId.get(productId)) !== requestId) return;
       state.lookupBusyByProductId.delete(productId);

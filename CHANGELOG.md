@@ -1,5 +1,10 @@
 # Changelog
 
+## [4.0.18] - 2026-03-13
+
+### Changed
+- Removed the `Selection required: validate this card before creation.` helper text from the missing-barcode flow while keeping the result card in the same position.
+
 ## [4.0.17] - 2026-03-13
 
 ### Changed
