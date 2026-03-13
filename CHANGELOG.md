@@ -1,5 +1,10 @@
 # Changelog
 
+## [4.0.31] - 2026-03-13
+
+### Changed
+- Shopping list parent products now display an estimated unit price based on the average price of their child products, and this estimate is included in the total shopping list value.
+
 ## [4.0.30] - 2026-03-13
 
 ### Changed

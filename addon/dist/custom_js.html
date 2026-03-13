@@ -10,7 +10,7 @@
   NERDCORE.registerAddon({
     id: 'producthelper',
     name: 'ProductHelper',
-    version: '4.0.30',
+    version: '4.0.31',
     settingsSection: 'producthelper',
     settingsTitle: 'ProductHelper',
     settingsIcon: 'fa-box-open',
@@ -39,6 +39,8 @@
     apiStockByProductId: new Map(),
     apiParentModeByProductId: new Map(),
     apiBrandByProductId: new Map(),
+    apiProductsById: new Map(),
+    apiProductChildrenByParentId: new Map(),
     apiProductGroupById: new Map(),
     apiQuantityUnitById: new Map(),
     apiQuantityUnitIdsByNorm: new Map(),
@@ -152,6 +154,8 @@
     productCardPriceEnhanceTimer: null,
     productCardPriceFetchToken: 0,
     productCardPriceCacheById: new Map(),
+    shoppingListParentPriceObserver: null,
+    shoppingListParentPricePromise: null,
     productConversionFractionObserver: null,
     barcodeAutofillObserver: null,
     purchasePriceHintObserver: null,
@@ -19059,6 +19063,39 @@
     return map;
   }
 
+  async function loadProductHierarchyFromApi(force = false) {
+    if (!force && S.apiProductsById instanceof Map && S.apiProductsById.size > 0
+      && S.apiProductChildrenByParentId instanceof Map) {
+      return {
+        byId: S.apiProductsById,
+        childrenByParentId: S.apiProductChildrenByParentId,
+      };
+    }
+
+    const byId = new Map();
+    const childrenByParentId = new Map();
+    const payload = await fetchJson('api/objects/products');
+    let rows = extractArray(payload);
+    if (rows.length === 0) {
+      rows = deepCollectObjects(payload, (o) => hasAnyKey(o, ['id']) && hasAnyKey(o, ['name']));
+    }
+
+    rows.forEach((row) => {
+      const productId = pickFirstNumber(row, ['id', 'product_id', 'productId']);
+      if (!(productId > 0)) return;
+      byId.set(productId, row);
+      const parentId = pickFirstNumber(row, ['parent_product_id', 'parentProductId']);
+      if (!(parentId > 0)) return;
+      const list = childrenByParentId.get(parentId) || [];
+      list.push(productId);
+      childrenByParentId.set(parentId, list);
+    });
+
+    S.apiProductsById = byId;
+    S.apiProductChildrenByParentId = childrenByParentId;
+    return { byId, childrenByParentId };
+  }
+
   async function loadParentModeMapFromApi(productIdsInput = []) {
     const map = new Map();
     try {
@@ -19473,6 +19510,176 @@
     });
 
     return S.apiLoadPromise;
+  }
+
+  function isShoppingListPage() {
+    const view = clean(window.Grocy && window.Grocy.View ? window.Grocy.View : '').toLowerCase();
+    if (view === 'shoppinglist') return true;
+    const path = clean(window.location && window.location.pathname ? window.location.pathname : '').toLowerCase();
+    return /\/shoppinglist\/?$/.test(path);
+  }
+
+  function shoppingListTable() {
+    return document.getElementById('shoppinglist-table');
+  }
+
+  function shoppingListHeaderMap() {
+    const table = shoppingListTable();
+    if (!table) return null;
+    const headers = Array.from(table.querySelectorAll('thead th')).map((th) => norm(clean(th.textContent)));
+    return {
+      amountIdx: findHeaderIndex(headers, ['amount', 'quantite']),
+      unitPriceIdx: findHeaderIndex(headers, ['last price (unit)', 'dernier prix (unite)', 'dernier prix (unit)']),
+      totalPriceIdx: findHeaderIndex(headers, ['last price (total)', 'dernier prix (total)']),
+    };
+  }
+
+  function shoppingListItemRows() {
+    const table = shoppingListTable();
+    if (!table) return [];
+    return Array.from(table.querySelectorAll('tbody tr[id^="shoppinglistitem-"][id$="-row"]'));
+  }
+
+  function shoppingListRowProductId(row) {
+    if (!row) return 0;
+    const trigger = row.querySelector('td.productcard-trigger[data-product-id]');
+    return num(trigger?.getAttribute('data-product-id') || 0);
+  }
+
+  function formatCurrencyLikeSample(valueInput = 0, sampleTextInput = '') {
+    const value = num(valueInput);
+    const sampleText = clean(sampleTextInput || '');
+    const currency = detectCurrencySymbolFromText(sampleText);
+    const amountText = fmt(value, 2);
+    const currencyIndex = sampleText.indexOf(currency);
+    const digitIndex = sampleText.search(/\d/);
+    const currencyFirst = currencyIndex >= 0 && (digitIndex < 0 || currencyIndex <= digitIndex);
+    return currencyFirst ? `${currency}${amountText}` : `${amountText} ${currency}`;
+  }
+
+  function setShoppingListCurrencyCellValue(cellInput, valueInput = 0) {
+    const cell = cellInput && cellInput.nodeType === 1 ? cellInput : null;
+    if (!cell) return;
+    const value = num(valueInput);
+    const sampleText = clean(cell.textContent || '');
+    cell.setAttribute('data-order', String(value));
+    let display = cell.querySelector('.locale-number.locale-number-currency');
+    if (!display) {
+      cell.innerHTML = '';
+      display = document.createElement('span');
+      display.className = 'locale-number locale-number-currency';
+      cell.appendChild(display);
+    }
+    display.textContent = formatCurrencyLikeSample(value, sampleText);
+  }
+
+  function shoppingListParentAverageChildPrice(productIdInput = 0) {
+    const productId = num(productIdInput);
+    if (!(productId > 0)) return 0;
+    const children = S.apiProductChildrenByParentId instanceof Map ? S.apiProductChildrenByParentId.get(productId) : null;
+    if (!Array.isArray(children) || children.length === 0) return 0;
+    const prices = [];
+    children.forEach((childIdInput) => {
+      const childId = num(childIdInput);
+      if (!(childId > 0)) return;
+      const childStock = S.apiStockByProductId instanceof Map ? S.apiStockByProductId.get(childId) : null;
+      const childPrice = childStock
+        ? (num(childStock.price) > 0 ? num(childStock.price) : num(childStock.avgPrice))
+        : 0;
+      if (childPrice > 0) prices.push(childPrice);
+    });
+    if (prices.length === 0) return 0;
+    const total = prices.reduce((sum, entry) => sum + num(entry), 0);
+    return total > 0 ? (total / prices.length) : 0;
+  }
+
+  function shoppingListTitleTotalCurrencyNode() {
+    const wrap = document.querySelector('.title-related-links');
+    if (!wrap) return null;
+    return wrap.querySelector('.locale-number.locale-number-currency');
+  }
+
+  function refreshShoppingListPatchedTotalTitle(headerMapInput = null) {
+    const map = headerMapInput || shoppingListHeaderMap();
+    if (!map || !(map.totalPriceIdx >= 0)) return;
+    const totalNode = shoppingListTitleTotalCurrencyNode();
+    if (!totalNode) return;
+    let total = 0;
+    shoppingListItemRows().forEach((row) => {
+      const cells = row.cells;
+      if (!cells || !cells[map.totalPriceIdx]) return;
+      total += cellNum(cells[map.totalPriceIdx]);
+    });
+    totalNode.textContent = formatCurrencyLikeSample(total, clean(totalNode.textContent || ''));
+  }
+
+  async function applyShoppingListParentAveragePrices() {
+    if (!isShoppingListPage()) return;
+    const table = shoppingListTable();
+    if (!table) return;
+    if (S.shoppingListParentPricePromise) return S.shoppingListParentPricePromise;
+
+    S.shoppingListParentPricePromise = (async () => {
+      const headerMap = shoppingListHeaderMap();
+      if (!headerMap || !(headerMap.amountIdx >= 0) || !(headerMap.unitPriceIdx >= 0) || !(headerMap.totalPriceIdx >= 0)) return;
+
+      await Promise.all([
+        refreshApiData(false).catch(() => false),
+        loadProductHierarchyFromApi(false).catch(() => ({ byId: new Map(), childrenByParentId: new Map() })),
+      ]);
+
+      shoppingListItemRows().forEach((row) => {
+        const productId = shoppingListRowProductId(row);
+        if (!(productId > 0)) return;
+        const product = S.apiProductsById instanceof Map ? S.apiProductsById.get(productId) : null;
+        const stock = S.apiStockByProductId instanceof Map ? S.apiStockByProductId.get(productId) : null;
+        const isParent = boolish(stock?.isParent)
+          || boolish(product?.no_own_stock)
+          || boolish(product?.is_parent)
+          || boolish(product?.parent)
+          || (S.apiProductChildrenByParentId instanceof Map && S.apiProductChildrenByParentId.has(productId));
+        if (!isParent) return;
+
+        const avgChildPrice = shoppingListParentAverageChildPrice(productId);
+        if (!(avgChildPrice > 0)) return;
+
+        const cells = row.cells;
+        if (!cells || !cells[headerMap.amountIdx] || !cells[headerMap.unitPriceIdx] || !cells[headerMap.totalPriceIdx]) return;
+        const amount = cellNum(cells[headerMap.amountIdx]);
+        const total = amount > 0 ? (avgChildPrice * amount) : 0;
+        setShoppingListCurrencyCellValue(cells[headerMap.unitPriceIdx], avgChildPrice);
+        setShoppingListCurrencyCellValue(cells[headerMap.totalPriceIdx], total);
+        row.dataset.parentAvgPriceApplied = '1';
+      });
+
+      refreshShoppingListPatchedTotalTitle(headerMap);
+    })().finally(() => {
+      S.shoppingListParentPricePromise = null;
+    });
+
+    return S.shoppingListParentPricePromise;
+  }
+
+  function initShoppingListParentAveragePricePatch() {
+    if (!isShoppingListPage()) {
+      if (S.shoppingListParentPriceObserver) {
+        try { S.shoppingListParentPriceObserver.disconnect(); } catch (_err) {}
+        S.shoppingListParentPriceObserver = null;
+      }
+      return;
+    }
+
+    applyShoppingListParentAveragePrices().catch((error) => {
+      console.warn('[ProductHelper] Shopping list parent average price patch failed', error);
+    });
+
+    if (!window.MutationObserver || S.shoppingListParentPriceObserver) return;
+    const host = document.getElementById('shoppinglist-main') || document.body;
+    if (!host) return;
+    S.shoppingListParentPriceObserver = new MutationObserver(() => {
+      applyShoppingListParentAveragePrices().catch(() => null);
+    });
+    S.shoppingListParentPriceObserver.observe(host, { childList: true, subtree: true, characterData: true });
   }
 
   function colors(n, a = 0.8) {
@@ -34309,6 +34516,7 @@
     }
 
     safeRun('refreshProductsMissingBarcodesBanner', () => { refreshProductsMissingBarcodesBanner().catch(() => null); });
+    safeRun('initShoppingListParentAveragePricePatch', () => initShoppingListParentAveragePricePatch());
     safeRun('initProductStatusTerminal', () => initProductStatusTerminal());
     safeRun('initProductImageSearchButton', () => initProductImageSearchButton());
     safeRun('initNormalizedUnitPriceEnhancements', () => initNormalizedUnitPriceEnhancements());
