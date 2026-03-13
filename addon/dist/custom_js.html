@@ -2236,6 +2236,9 @@
       settings_tabs_compat: 'Compatibilité',
       settings_tabs_providers: 'Fournisseurs IA',
       settings_tabs_update: 'Mise à jour',
+      settings_page_missing_barcodes_title: 'Produits sans code-barres',
+      settings_page_missing_barcodes_desc: 'Page dédiée pour traiter les produits sans code-barres avec recherche, ignore et réactivation côté serveur.',
+      settings_page_open_dedicated_missing_barcodes: 'Ouvrir la page dédiée',
       settings_group_general: 'Réglages généraux',
       settings_group_product_data: 'Données produit (OFF/OPF)',
       settings_group_barcodes: 'Codes-barres à ajouter',
@@ -2979,6 +2982,9 @@
       settings_tabs_compat: 'Compatibility',
       settings_tabs_providers: 'AI providers',
       settings_tabs_update: 'Updates',
+      settings_page_missing_barcodes_title: 'Products without barcodes',
+      settings_page_missing_barcodes_desc: 'Dedicated page to process products without barcodes with lookup, ignore, and server-side restore flow.',
+      settings_page_open_dedicated_missing_barcodes: 'Open dedicated page',
       settings_group_general: 'General settings',
       settings_group_product_data: 'Product data (OFF/OPF)',
       settings_group_barcodes: 'Barcodes to add',
@@ -14159,7 +14165,10 @@
       <div class="small text-muted mb-2">${t('missing_barcodes_desc')}</div>
       <div class="dash-missing-barcodes-tools mb-2">
         <div id="dash_missing_barcodes_count" class="small text-muted">${t('missing_barcodes_count', { count: '0' })}</div>
-        <button id="dash_missing_barcodes_refresh" type="button" class="btn btn-outline-secondary btn-sm">${t('missing_barcodes_refresh_btn')}</button>
+        <div class="d-flex flex-wrap align-items-center">
+          <a href="${escapeHtml(productHelperSettingsLink('', 'missing_barcodes'))}" class="btn btn-outline-info btn-sm mr-2 mb-1">${escapeHtml(t('settings_page_open_dedicated_missing_barcodes'))}</a>
+          <button id="dash_missing_barcodes_refresh" type="button" class="btn btn-outline-secondary btn-sm mb-1">${t('missing_barcodes_refresh_btn')}</button>
+        </div>
       </div>
       <div id="dash_missing_barcodes_list" class="dash-missing-barcodes-list"></div>
       <div id="dash_missing_barcodes_more_wrap" class="d-none mt-2">
@@ -14673,11 +14682,34 @@
     return aliases[raw] || '';
   }
 
+  function normalizeProductHelperPageId(valueInput = '') {
+    const raw = clean(valueInput || '').toLowerCase();
+    if (!raw) return '';
+    const aliases = {
+      'missing-barcodes': 'missing_barcodes',
+      missing_barcodes: 'missing_barcodes',
+      missingbarcodes: 'missing_barcodes',
+      barcodes_missing: 'missing_barcodes',
+      ignored_barcodes: 'missing_barcodes',
+    };
+    return aliases[raw] || '';
+  }
+
   function requestedDonneSettingsGroupFromUrl() {
     if (!isProductHelperSettingsPage()) return '';
     try {
       const params = new URLSearchParams(window.location.search || '');
       return normalizeDonneSettingsGroupId(params.get('producthelperTab') || '');
+    } catch (_err) {
+      return '';
+    }
+  }
+
+  function requestedProductHelperPageFromUrl() {
+    if (!isProductHelperSettingsPage()) return '';
+    try {
+      const params = new URLSearchParams(window.location.search || '');
+      return normalizeProductHelperPageId(params.get('producthelperPage') || '');
     } catch (_err) {
       return '';
     }
@@ -15711,10 +15743,12 @@
     return /\/products\/?$/.test(path);
   }
 
-  function productHelperSettingsLink(tabInput = 'barcodes') {
+  function productHelperSettingsLink(tabInput = 'barcodes', pageInput = '') {
     const tab = normalizeDonneSettingsGroupId(tabInput) || clean(tabInput || '');
+    const page = normalizeProductHelperPageId(pageInput) || clean(pageInput || '');
     let url = '/stocksettings?producthelper=1';
     if (tab) url += `&producthelperTab=${encodeURIComponent(tab)}`;
+    if (page) url += `&producthelperPage=${encodeURIComponent(page)}`;
     return url;
   }
 
@@ -15736,7 +15770,7 @@
       const banner = document.createElement('div');
       banner.id = 'dash_products_missing_barcodes_banner';
       banner.className = 'mb-2';
-      const href = productHelperSettingsLink('barcodes');
+      const href = productHelperSettingsLink('', 'missing_barcodes');
       banner.innerHTML = `
         <div class="dash-products-missing-barcodes-text">
           <i class="fa-solid fa-barcode"></i>
@@ -15758,12 +15792,19 @@
     if (!isProductHelperSettingsPage()) return false;
     const pageContent = document.getElementById('page-content');
     if (!pageContent) return false;
+    const requestedPage = requestedProductHelperPageFromUrl();
+    const pageTitle = requestedPage === 'missing_barcodes'
+      ? t('settings_page_missing_barcodes_title')
+      : t('ai_settings_title');
+    const pageDesc = requestedPage === 'missing_barcodes'
+      ? t('settings_page_missing_barcodes_desc')
+      : t('settings_group_update');
 
     pageContent.innerHTML = `
       <div class="row">
         <div class="col">
-          <h2 class="title">${escapeHtml(t('ai_settings_title'))}</h2>
-          <div class="small text-muted mb-2">${escapeHtml(t('settings_group_update'))}</div>
+          <h2 class="title">${escapeHtml(pageTitle)}</h2>
+          <div class="small text-muted mb-2">${escapeHtml(pageDesc)}</div>
         </div>
       </div>
       <hr class="my-2">
@@ -15782,6 +15823,15 @@
       host.appendChild(overlay);
       const closeBtn = overlay.querySelector('#dash_ai_close');
       if (closeBtn) closeBtn.classList.add('d-none');
+      if (requestedPage === 'missing_barcodes') {
+        const body = overlay.querySelector('.card-body');
+        const missingSection = document.getElementById('dash_missing_barcodes_section');
+        if (body && missingSection) {
+          body.replaceChildren(missingSection);
+          missingSection.classList.remove('mt-3');
+          fillMissingBarcodesSettingsSection();
+        }
+      }
     }
     return true;
   }

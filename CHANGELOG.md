@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.0.16] - 2026-03-13
+
+### Changed
+- Added a dedicated ProductHelper settings page for `Products without barcodes` via `/stocksettings?producthelper=1&producthelperPage=missing_barcodes`.
+- Updated ProductHelper links and banner shortcuts to open that standalone page directly.
+- Ignored products remain stored server-side through `Codes_barres_ignores` userentity, not in local browser storage.
+
 ## [4.0.15] - 2026-03-13
 
 ### Changed
