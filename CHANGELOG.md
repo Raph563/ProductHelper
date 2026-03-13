@@ -1,5 +1,11 @@
 # Changelog
 
+## [4.0.13] - 2026-03-13
+
+### Changed
+- Restyled the `Products without barcodes` cards to match the Grocy barcode search result cards used on the product edit page.
+- Simplified the product sheet layout around the same compact visual language while keeping the existing lookup, ignore, and restore flows unchanged.
+
 ## [4.0.12] - 2026-03-13
 
 ### Changed
