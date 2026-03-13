@@ -1,5 +1,11 @@
 # Changelog
 
+## [4.0.15] - 2026-03-13
+
+### Changed
+- Missing-barcode lookup results are now kept in memory per product so previously found barcode cards reappear instantly in ProductHelper settings.
+- Ignoring a product no longer cancels an in-progress barcode lookup; the lookup continues in background and its result stays available if the product is restored later.
+
 ## [4.0.14] - 2026-03-13
 
 ### Changed

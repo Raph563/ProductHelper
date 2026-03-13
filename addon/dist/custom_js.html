@@ -11477,12 +11477,14 @@
     if (!(base.pendingSelectionByProductId instanceof Map)) base.pendingSelectionByProductId = new Map();
     if (!(base.brandHintByProductId instanceof Map)) base.brandHintByProductId = new Map();
     if (!(base.lookupRunCacheByProductId instanceof Map)) base.lookupRunCacheByProductId = new Map();
+    if (!(base.lookupRequestIdByProductId instanceof Map)) base.lookupRequestIdByProductId = new Map();
     if (!Array.isArray(base.products)) base.products = [];
     if (!Array.isArray(base.ignoredProducts)) base.ignoredProducts = [];
     base.loading = base.loading === true;
     base.ignoreAvailable = base.ignoreAvailable === true;
     base.ignoreError = clean(base.ignoreError || '');
     base.loadedAt = Math.max(0, num(base.loadedAt) || 0);
+    base.lookupRequestSeq = Math.max(0, Math.floor(num(base.lookupRequestSeq) || 0));
     base.renderStep = Math.max(20, Math.floor(num(base.renderStep) || 60));
     base.renderLimit = Math.max(base.renderStep, Math.floor(num(base.renderLimit) || base.renderStep));
     S.missingBarcodeSection = base;
@@ -12180,7 +12182,10 @@
 
       rebuildMissingBarcodeSectionIndexes(state);
 
-      const validIds = new Set(products.map((entry) => num(entry.productId)).filter((id) => id > 0));
+      const validIds = new Set([
+        ...products.map((entry) => num(entry.productId)),
+        ...ignoredProducts.map((entry) => num(entry.productId)),
+      ].filter((id) => id > 0));
       state.pendingSelectionByProductId.forEach((_value, productId) => {
         if (!validIds.has(num(productId))) state.pendingSelectionByProductId.delete(productId);
       });
@@ -12189,6 +12194,9 @@
       });
       state.lookupRunCacheByProductId.forEach((_value, productId) => {
         if (!validIds.has(num(productId))) state.lookupRunCacheByProductId.delete(productId);
+      });
+      state.lookupRequestIdByProductId.forEach((_value, productId) => {
+        if (!validIds.has(num(productId))) state.lookupRequestIdByProductId.delete(productId);
       });
 
       state.loadedAt = Date.now();
@@ -12292,10 +12300,15 @@
 
     const card = missingBarcodeCardNodeByProductId(productId);
     const button = card ? card.querySelector('[data-missing-barcode-search]') : null;
-    state.pendingSelectionByProductId.delete(productId);
-    renderMissingBarcodesLookupCard(productId);
+    const cachedSelection = state.pendingSelectionByProductId.get(productId);
+    if (cachedSelection && clean(cachedSelection.code || '')) {
+      renderMissingBarcodesLookupCard(productId);
+    }
     setMissingBarcodesCardStatus(productId, t('missing_barcodes_status_searching'), 'info');
     if (button) setButtonBusy(button, true);
+    state.lookupRequestSeq += 1;
+    const requestId = state.lookupRequestSeq;
+    state.lookupRequestIdByProductId.set(productId, requestId);
 
     try {
       const brandInfo = await fetchMissingBarcodeBrandHint(productId, product.productName);
@@ -12313,6 +12326,7 @@
 
       const best = lookup && lookup.best ? lookup.best : null;
       const code = clean(best && best.code ? best.code : '');
+      if (num(state.lookupRequestIdByProductId.get(productId)) !== requestId) return;
       if (!code) {
         setMissingBarcodesCardStatus(productId, t('missing_barcodes_status_no_result'), 'warning');
         return;
@@ -12344,9 +12358,13 @@
       renderMissingBarcodesLookupCard(productId);
       setMissingBarcodesCardStatus(productId, t('missing_barcodes_selection_required'), 'info');
     } catch (error) {
+      if (num(state.lookupRequestIdByProductId.get(productId)) !== requestId) return;
       const msg = clean(error && error.message ? error.message : String(error)) || t('focus_unknown_error');
       setMissingBarcodesCardStatus(productId, t('missing_barcodes_lookup_error', { msg }), 'danger');
     } finally {
+      if (num(state.lookupRequestIdByProductId.get(productId)) === requestId) {
+        state.lookupRequestIdByProductId.delete(productId);
+      }
       if (button) setButtonBusy(button, false);
     }
   }
@@ -12371,9 +12389,6 @@
 
     try {
       await upsertMissingBarcodeIgnoredProduct(productId, clean(product.productName || ''), true);
-      state.pendingSelectionByProductId.delete(productId);
-      state.brandHintByProductId.delete(productId);
-      state.lookupRunCacheByProductId.delete(productId);
       state.products = state.products.filter((entry) => num(entry.productId) !== productId);
       state.ignoredProducts = sortMissingBarcodeEntries([
         ...(Array.isArray(state.ignoredProducts) ? state.ignoredProducts : []),
@@ -12471,6 +12486,7 @@
       state.pendingSelectionByProductId.delete(productId);
       state.brandHintByProductId.delete(productId);
       state.lookupRunCacheByProductId.delete(productId);
+      state.lookupRequestIdByProductId.delete(productId);
       state.products = state.products.filter((entry) => num(entry.productId) !== productId);
       state.ignoredProducts = state.ignoredProducts.filter((entry) => num(entry.productId) !== productId);
       rebuildMissingBarcodeSectionIndexes(state);
