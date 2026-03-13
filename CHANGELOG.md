@@ -1,5 +1,10 @@
 # Changelog
 
+## [4.0.23] - 2026-03-13
+
+### Changed
+- Refined the `/products` missing-barcode banner with a more elegant Grocy-aligned layout, clearer hierarchy, and a stronger count highlight.
+
 ## [4.0.22] - 2026-03-13
 
 ### Changed
