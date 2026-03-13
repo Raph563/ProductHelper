@@ -1,5 +1,10 @@
 # Changelog
 
+## [4.0.29] - 2026-03-13
+
+### Changed
+- NerdCore settings now auto-fill the VPS API token field when the page loads and the input is still empty.
+
 ## [4.0.28] - 2026-03-13
 
 ### Changed

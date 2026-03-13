@@ -10,7 +10,7 @@
   NERDCORE.registerAddon({
     id: 'producthelper',
     name: 'ProductHelper',
-    version: '4.0.28',
+    version: '4.0.29',
     settingsSection: 'producthelper',
     settingsTitle: 'ProductHelper',
     settingsIcon: 'fa-box-open',
@@ -217,6 +217,7 @@
     initialBrandLinkMigrationPromise: null,
     manageDataBrandObserver: null,
     manageDataBrandEnsureTimer: null,
+    nerdCoreTokenAutofillObserver: null,
     bulkProductEdit: {
       loading: false,
       running: false,
@@ -8981,6 +8982,84 @@
     const headers = { Accept: 'application/json' };
     if (token) headers['X-NerdCore-Token'] = token;
     return headers;
+  }
+
+  function nerdCoreUpdateTokenValue() {
+    return (NERDCORE && typeof NERDCORE.getUpdateToken === 'function')
+      ? clean(NERDCORE.getUpdateToken() || '')
+      : '';
+  }
+
+  function isNerdCoreSettingsPage() {
+    const view = clean(window.Grocy && window.Grocy.View ? window.Grocy.View : '').toLowerCase();
+    if (view !== 'stocksettings') return false;
+    try {
+      const params = new URLSearchParams(window.location.search || '');
+      return params.get('nerdcore') === '1' && params.get('producthelper') !== '1';
+    } catch (_err) {
+      return false;
+    }
+  }
+
+  function nerdCoreTokenInputCandidates(rootInput = document) {
+    const root = rootInput && rootInput.querySelectorAll ? rootInput : document;
+    const out = [];
+    const seen = new Set();
+    root.querySelectorAll('input').forEach((input) => {
+      if (!input || seen.has(input)) return;
+      const type = clean(input.type || '').toLowerCase();
+      if (type && !['text', 'password', 'search'].includes(type)) return;
+      const id = clean(input.id || '');
+      const name = clean(input.name || '');
+      const placeholder = clean(input.getAttribute('placeholder') || '');
+      const ariaLabel = clean(input.getAttribute('aria-label') || '');
+      const labelText = clean(input.closest('.form-group, .input-group, .card, .row, .col, div')?.querySelector('label')?.textContent || '');
+      const haystack = `${id} ${name} ${placeholder} ${ariaLabel} ${labelText}`;
+      if (!/nerdcore|token api vps|api token vps|x-nerdcore-token/i.test(haystack)) return;
+      seen.add(input);
+      out.push(input);
+    });
+    return out;
+  }
+
+  function tryAutofillNerdCoreSettingsToken(rootInput = document) {
+    if (!isNerdCoreSettingsPage()) return false;
+    const token = nerdCoreUpdateTokenValue();
+    if (!token) return false;
+    const inputs = nerdCoreTokenInputCandidates(rootInput);
+    let changed = false;
+    inputs.forEach((input) => {
+      const current = clean(input.value || '');
+      if (current) return;
+      input.value = token;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      changed = true;
+    });
+    return changed;
+  }
+
+  function initNerdCoreSettingsTokenAutofill() {
+    if (!isNerdCoreSettingsPage()) {
+      if (S.nerdCoreTokenAutofillObserver) {
+        try { S.nerdCoreTokenAutofillObserver.disconnect(); } catch (_err) {}
+        S.nerdCoreTokenAutofillObserver = null;
+      }
+      return;
+    }
+    tryAutofillNerdCoreSettingsToken(document);
+    if (!window.MutationObserver || S.nerdCoreTokenAutofillObserver) return;
+    S.nerdCoreTokenAutofillObserver = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        const nodes = Array.from(mutation.addedNodes || []);
+        for (const node of nodes) {
+          if (!node || node.nodeType !== 1) continue;
+          if (tryAutofillNerdCoreSettingsToken(node)) return;
+          if (node.querySelector && tryAutofillNerdCoreSettingsToken(node)) return;
+        }
+      }
+    });
+    S.nerdCoreTokenAutofillObserver.observe(document.body, { childList: true, subtree: true });
   }
 
   async function addonUpdateRelayHealthCheck() {
@@ -34176,6 +34255,7 @@
     safeRun('loadBarcodeAutofillUiSettings', () => loadBarcodeAutofillUiSettings());
     safeRun('loadPhotoSearchSettings', () => loadPhotoSearchSettings());
     safeRun('loadPhotoSearchProgress', () => loadPhotoSearchProgress());
+    safeRun('initNerdCoreSettingsTokenAutofill', () => initNerdCoreSettingsTokenAutofill());
 
     const isHelperSettingsPage = safeRun('isProductHelperSettingsPage', () => isProductHelperSettingsPage()) === true;
     if (!isHelperSettingsPage) {
