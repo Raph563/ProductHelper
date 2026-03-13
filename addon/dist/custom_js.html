@@ -10,7 +10,7 @@
   NERDCORE.registerAddon({
     id: 'producthelper',
     name: 'ProductHelper',
-    version: '4.0.33',
+    version: '4.0.34',
     settingsSection: 'producthelper',
     settingsTitle: 'ProductHelper',
     settingsIcon: 'fa-box-open',
@@ -7523,6 +7523,22 @@
       #dash_ai_settings_overlay .dash-ai-settings-card .card-header {
         background: linear-gradient(145deg, rgba(13,110,253,0.2), rgba(32,201,151,0.15));
       }
+      #dash_ai_settings_overlay .dash-ai-settings-header-title {
+        min-width: 0;
+      }
+      #dash_ai_settings_overlay .dash-ai-settings-header-tools {
+        display: flex;
+        align-items: flex-start;
+        justify-content: flex-end;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+      }
+      #dash_ai_settings_overlay .dash-ai-settings-header-mode-slot {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        min-width: 0;
+      }
       #dash_ai_settings_overlay .dash-ai-settings-card .card-body {
         overflow: auto;
       }
@@ -7933,15 +7949,20 @@
         padding: 0.5rem 0.58rem;
       }
       #dash_ai_settings_overlay #dash_donne_settings_mode {
-        position: sticky;
-        top: 0;
-        z-index: 4;
+        position: static;
         background: rgba(24,29,35,0.95);
         border: 1px solid rgba(255,255,255,0.08);
         border-radius: 0.5rem;
-        padding: 0.45rem 0.55rem;
+        padding: 0.35rem 0.4rem;
         backdrop-filter: blur(4px);
         gap: 0.45rem;
+        margin-left: auto;
+      }
+      #dash_ai_settings_overlay #dash_donne_settings_mode .dash-settings-mode-label {
+        display: none;
+      }
+      #dash_ai_settings_overlay #dash_donne_settings_mode .dash-settings-mode-hint {
+        display: none;
       }
       #dash_ai_settings_overlay #dash_donne_settings_mode .btn-group {
         border: 1px solid rgba(255,255,255,0.16);
@@ -7949,7 +7970,7 @@
         overflow: hidden;
       }
       #dash_ai_settings_overlay #dash_donne_settings_mode [data-settings-mode] {
-        min-width: 7.2rem;
+        min-width: 6.6rem;
         font-weight: 700;
         letter-spacing: 0.02em;
       }
@@ -15577,20 +15598,25 @@
     const defs = donneSettingsGroupDefinitions();
     if (!defs.length) return;
 
+    const headerModeSlot = overlay.querySelector('#dash_ai_settings_header_mode_slot');
     let modeWrap = document.getElementById('dash_donne_settings_mode');
     if (!modeWrap) {
       modeWrap = document.createElement('div');
       modeWrap.id = 'dash_donne_settings_mode';
-      modeWrap.className = 'd-flex flex-wrap align-items-center mb-2';
+      modeWrap.className = 'd-flex flex-wrap align-items-center';
+    }
+    if (headerModeSlot && modeWrap.parentNode !== headerModeSlot) {
+      headerModeSlot.appendChild(modeWrap);
+    } else if (!modeWrap.parentNode) {
       body.insertBefore(modeWrap, body.firstChild);
     }
     modeWrap.innerHTML = `
-      <span class="small text-muted mr-2">${escapeHtml(t('settings_mode_label'))}</span>
+      <span class="small text-muted mr-2 dash-settings-mode-label">${escapeHtml(t('settings_mode_label'))}</span>
       <div class="btn-group btn-group-sm mr-2" role="group" aria-label="${escapeHtml(t('settings_mode_label'))}">
         <button type="button" class="btn btn-outline-secondary" data-settings-mode="basic">${escapeHtml(t('settings_mode_basic'))}</button>
         <button type="button" class="btn btn-outline-secondary" data-settings-mode="advanced">${escapeHtml(t('settings_mode_advanced'))}</button>
       </div>
-      <span id="dash_donne_settings_mode_hint" class="small text-muted"></span>
+      <span id="dash_donne_settings_mode_hint" class="small text-muted dash-settings-mode-hint"></span>
     `;
     modeWrap.querySelectorAll('[data-settings-mode]').forEach((button) => {
       button.addEventListener('click', (event) => {
@@ -15717,9 +15743,12 @@
     overlay.className = 'd-none';
     overlay.innerHTML = `
       <div class="card dash-ai-settings-card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-          <div class="font-weight-bold">${t('ai_settings_title')}</div>
-          <button id="dash_ai_close" type="button" class="btn btn-sm btn-outline-secondary">${t('ai_settings_close')}</button>
+        <div class="card-header d-flex justify-content-between align-items-start flex-wrap">
+          <div class="font-weight-bold dash-ai-settings-header-title">${t('ai_settings_title')}</div>
+          <div class="dash-ai-settings-header-tools">
+            <div id="dash_ai_settings_header_mode_slot" class="dash-ai-settings-header-mode-slot"></div>
+            <button id="dash_ai_close" type="button" class="btn btn-sm btn-outline-secondary">${t('ai_settings_close')}</button>
+          </div>
         </div>
         <div class="card-body">
           <div id="dash_settings_interface_section" class="dash-settings-section p-2">

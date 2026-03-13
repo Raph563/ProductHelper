@@ -1,5 +1,10 @@
 # Changelog
 
+## [4.0.34] - 2026-03-13
+
+### Changed
+- Moved the `BASIC / ADVANCED` settings mode switch into the `ProductHelper settings` header, aligned on the right side of the title like the Grocy-style settings layout.
+
 ## [4.0.33] - 2026-03-13
 
 ### Fixed
