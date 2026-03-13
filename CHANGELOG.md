@@ -1,5 +1,11 @@
 # Changelog
 
+## [4.0.14] - 2026-03-13
+
+### Changed
+- Reworked the `Products without barcodes` cards in ProductHelper settings to reuse the same compact Grocy result-card structure as the product edit barcode search UI.
+- Fixed the settings-page product cards layout so product media, metadata, and actions stay aligned like the edit-page barcode result cards.
+
 ## [4.0.13] - 2026-03-13
 
 ### Changed
