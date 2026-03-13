@@ -14199,6 +14199,9 @@
     if (!body) return;
 
     initOpenFoodFactsToolsStyle();
+    const dedicatedPageButtonHtml = requestedProductHelperPageFromUrl() === 'missing_barcodes'
+      ? ''
+      : `<a href="${escapeHtml(productHelperSettingsLink('', 'missing_barcodes'))}" class="btn btn-outline-info btn-sm mr-2 mb-1">${escapeHtml(t('settings_page_open_dedicated_missing_barcodes'))}</a>`;
 
     const section = document.createElement('div');
     section.id = 'dash_missing_barcodes_section';
@@ -14209,7 +14212,7 @@
       <div class="dash-missing-barcodes-tools mb-2">
         <div id="dash_missing_barcodes_count" class="small text-muted">${t('missing_barcodes_count', { count: '0' })}</div>
         <div class="d-flex flex-wrap align-items-center">
-          <a href="${escapeHtml(productHelperSettingsLink('', 'missing_barcodes'))}" class="btn btn-outline-info btn-sm mr-2 mb-1">${escapeHtml(t('settings_page_open_dedicated_missing_barcodes'))}</a>
+          ${dedicatedPageButtonHtml}
           <button id="dash_missing_barcodes_refresh" type="button" class="btn btn-outline-secondary btn-sm mb-1">${t('missing_barcodes_refresh_btn')}</button>
         </div>
       </div>

@@ -1,5 +1,10 @@
 # Changelog
 
+## [4.0.20] - 2026-03-13
+
+### Changed
+- Removed the redundant `Open dedicated page` button when the user is already on the dedicated missing-barcodes page.
+
 ## [4.0.19] - 2026-03-13
 
 ### Changed
