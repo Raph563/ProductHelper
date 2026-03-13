@@ -1,5 +1,10 @@
 # Changelog
 
+## [4.0.33] - 2026-03-13
+
+### Fixed
+- Fixed shopping list patched prices so empty cells now inherit the actual currency already displayed by Grocy for the user instead of falling back to the UI-language default currency symbol.
+
 ## [4.0.32] - 2026-03-13
 
 ### Fixed

@@ -10,7 +10,7 @@
   NERDCORE.registerAddon({
     id: 'producthelper',
     name: 'ProductHelper',
-    version: '4.0.32',
+    version: '4.0.33',
     settingsSection: 'producthelper',
     settingsTitle: 'ProductHelper',
     settingsIcon: 'fa-box-open',
@@ -19565,11 +19565,21 @@
     return currencyFirst ? `${currency}${amountText}` : `${amountText} ${currency}`;
   }
 
+  function shoppingListCurrencySampleText() {
+    const titleNode = shoppingListTitleTotalCurrencyNode();
+    const titleText = clean(titleNode?.textContent || '');
+    if (titleText) return titleText;
+    const table = shoppingListTable();
+    if (!table) return '';
+    const populatedCell = table.querySelector('tbody td .locale-number.locale-number-currency');
+    return clean(populatedCell?.textContent || '');
+  }
+
   function setShoppingListCurrencyCellValue(cellInput, valueInput = 0) {
     const cell = cellInput && cellInput.nodeType === 1 ? cellInput : null;
     if (!cell) return;
     const value = num(valueInput);
-    const sampleText = clean(cell.textContent || '');
+    const sampleText = clean(cell.textContent || '') || shoppingListCurrencySampleText();
     cell.setAttribute('data-order', String(value));
     let display = cell.querySelector('.locale-number.locale-number-currency');
     if (!display) {
