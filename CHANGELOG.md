@@ -1,5 +1,10 @@
 # Changelog
 
+## [4.0.32] - 2026-03-13
+
+### Fixed
+- Fixed shopping list parent-product pricing so it now averages child `products_last_purchased` prices after converting them to the actual shopping-list row unit before updating the row totals and the global list total.
+
 ## [4.0.31] - 2026-03-13
 
 ### Changed

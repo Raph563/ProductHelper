@@ -10,7 +10,7 @@
   NERDCORE.registerAddon({
     id: 'producthelper',
     name: 'ProductHelper',
-    version: '4.0.31',
+    version: '4.0.32',
     settingsSection: 'producthelper',
     settingsTitle: 'ProductHelper',
     settingsIcon: 'fa-box-open',
@@ -35,17 +35,22 @@
     colMap: null,
     colSig: '',
     apiLoadPromise: null,
+    apiLastPurchasedPromise: null,
+    apiExactQuantityConversionsPromise: null,
     apiLoaded: false,
     apiStockByProductId: new Map(),
     apiParentModeByProductId: new Map(),
     apiBrandByProductId: new Map(),
     apiProductsById: new Map(),
     apiProductChildrenByParentId: new Map(),
+    apiLastPurchasedByProductId: new Map(),
     apiProductGroupById: new Map(),
     apiQuantityUnitById: new Map(),
     apiQuantityUnitIdsByNorm: new Map(),
     apiQuantityConversionsByProductId: new Map(),
     apiQuantityConversionsGlobalByUnitId: new Map(),
+    apiExactQuantityConversionsByProductId: new Map(),
+    apiExactQuantityConversionsGlobalByUnitId: new Map(),
     manualQtyFactorByProductId: new Map(),
     qtyLookupBusyByProductId: new Set(),
     qtyLookupPickerState: null,
@@ -19435,10 +19440,13 @@
       S.apiStockByProductId = new Map();
       S.apiBrandByProductId = new Map();
       S.apiProductGroupById = new Map();
+      S.apiLastPurchasedByProductId = new Map();
       S.apiQuantityUnitById = new Map();
       S.apiQuantityUnitIdsByNorm = new Map();
       S.apiQuantityConversionsByProductId = new Map();
       S.apiQuantityConversionsGlobalByUnitId = new Map();
+      S.apiExactQuantityConversionsByProductId = new Map();
+      S.apiExactQuantityConversionsGlobalByUnitId = new Map();
       S.apiStockSource = '';
       S.apiStockRawRows = 0;
       S.apiQuantityConversionSource = '';
@@ -19573,22 +19581,214 @@
     display.textContent = formatCurrencyLikeSample(value, sampleText);
   }
 
-  function shoppingListParentAverageChildPrice(productIdInput = 0) {
+  function setExactQuantityConversionCandidate(storeInput, fromUnitIdInput, toUnitIdInput, candidateInput) {
+    const store = storeInput instanceof Map ? storeInput : null;
+    const fromUnitId = num(fromUnitIdInput);
+    const toUnitId = num(toUnitIdInput);
+    const candidate = candidateInput && typeof candidateInput === 'object' ? candidateInput : null;
+    if (!store || !(fromUnitId > 0) || !(toUnitId > 0) || !candidate || !(num(candidate.factor) > 0)) return false;
+    if (!store.has(fromUnitId)) store.set(fromUnitId, new Map());
+    const fromMap = store.get(fromUnitId);
+    const current = fromMap.get(toUnitId) || null;
+    const next = {
+      factor: num(candidate.factor),
+      pathLen: conversionPathLength(candidate.pathLen || candidate.path || ''),
+      source: clean(candidate.source || ''),
+    };
+    if (shouldReplaceConversionCandidate(current, next)) {
+      fromMap.set(toUnitId, next);
+      return true;
+    }
+    return false;
+  }
+
+  async function loadShoppingListLastPurchasedMapFromApi(force = false) {
+    if (!force && S.apiLastPurchasedByProductId instanceof Map && S.apiLastPurchasedByProductId.size > 0) {
+      return S.apiLastPurchasedByProductId;
+    }
+    if (!force && S.apiLastPurchasedPromise) return S.apiLastPurchasedPromise;
+
+    S.apiLastPurchasedPromise = (async () => {
+      const map = new Map();
+      const payload = await fetchJson('api/objects/products_last_purchased');
+      let rows = extractArray(payload);
+      if (!rows.length) {
+        rows = deepCollectObjects(payload, (o) => hasAnyKey(o, ['product_id', 'productId']) && hasAnyKey(o, ['price']));
+      }
+      rows.forEach((row) => {
+        const productId = pickFirstNumber(row, ['product_id', 'productId']);
+        const price = num(row && row.price);
+        if (!(productId > 0) || !(price > 0)) return;
+        map.set(productId, {
+          productId,
+          amount: num(row && row.amount),
+          price,
+          row,
+        });
+      });
+      S.apiLastPurchasedByProductId = map;
+      return map;
+    })().catch((error) => {
+      console.warn('[ProductHelper] Shopping list: impossible de charger products_last_purchased', error);
+      S.apiLastPurchasedByProductId = new Map();
+      return S.apiLastPurchasedByProductId;
+    }).finally(() => {
+      S.apiLastPurchasedPromise = null;
+    });
+
+    return S.apiLastPurchasedPromise;
+  }
+
+  async function loadShoppingListExactQuantityConversionsFromApi(force = false) {
+    if (!force
+      && S.apiExactQuantityConversionsByProductId instanceof Map
+      && S.apiExactQuantityConversionsGlobalByUnitId instanceof Map
+      && (S.apiExactQuantityConversionsByProductId.size > 0 || S.apiExactQuantityConversionsGlobalByUnitId.size > 0)) {
+      return {
+        byProduct: S.apiExactQuantityConversionsByProductId,
+        global: S.apiExactQuantityConversionsGlobalByUnitId,
+      };
+    }
+    if (!force && S.apiExactQuantityConversionsPromise) return S.apiExactQuantityConversionsPromise;
+
+    S.apiExactQuantityConversionsPromise = (async () => {
+      const byProduct = new Map();
+      const global = new Map();
+      const endpointCandidates = [
+        'api/objects/quantity_unit_conversions_resolved',
+        'api/objects/quantity_unit_conversions_resolved_raw',
+        'api/objects/cache__quantity_unit_conversions_resolved',
+        'api/objects/quantity_unit_conversions',
+      ];
+      let rows = [];
+      let source = '';
+
+      for (const endpoint of endpointCandidates) {
+        try {
+          const payload = await fetchJson(endpoint);
+          let extracted = extractArray(payload);
+          if (!extracted.length) {
+            extracted = deepCollectObjects(
+              payload,
+              (o) => hasAnyKey(o, ['from_qu_id', 'to_qu_id']) && hasAnyKey(o, ['factor'])
+            );
+          }
+          if (extracted.length) {
+            rows = extracted;
+            source = endpoint;
+            break;
+          }
+        } catch (_error) {
+          // Try next endpoint candidate.
+        }
+      }
+
+      rows.forEach((row) => {
+        const fromUnitId = pickFirstNumber(row, ['from_qu_id']);
+        const toUnitId = pickFirstNumber(row, ['to_qu_id']);
+        const factor = num(row && row.factor);
+        if (!(fromUnitId > 0) || !(toUnitId > 0) || !(factor > 0)) return;
+        const candidate = {
+          factor,
+          pathLen: conversionPathLength(row && row.path),
+          source,
+        };
+        const productId = pickFirstNumber(row, ['product_id']);
+        if (productId > 0) {
+          if (!byProduct.has(productId)) byProduct.set(productId, new Map());
+          setExactQuantityConversionCandidate(byProduct.get(productId), fromUnitId, toUnitId, candidate);
+          return;
+        }
+        setExactQuantityConversionCandidate(global, fromUnitId, toUnitId, candidate);
+      });
+
+      S.apiExactQuantityConversionsByProductId = byProduct;
+      S.apiExactQuantityConversionsGlobalByUnitId = global;
+      return { byProduct, global };
+    })().catch((error) => {
+      console.warn('[ProductHelper] Shopping list: impossible de charger les conversions exactes', error);
+      S.apiExactQuantityConversionsByProductId = new Map();
+      S.apiExactQuantityConversionsGlobalByUnitId = new Map();
+      return {
+        byProduct: S.apiExactQuantityConversionsByProductId,
+        global: S.apiExactQuantityConversionsGlobalByUnitId,
+      };
+    }).finally(() => {
+      S.apiExactQuantityConversionsPromise = null;
+    });
+
+    return S.apiExactQuantityConversionsPromise;
+  }
+
+  function exactQuantityConversionFactorFromStore(storeInput, fromUnitIdInput, toUnitIdInput) {
+    const store = storeInput instanceof Map ? storeInput : null;
+    const fromUnitId = num(fromUnitIdInput);
+    const toUnitId = num(toUnitIdInput);
+    if (!store || !(fromUnitId > 0) || !(toUnitId > 0)) return 0;
+    const direct = store.get(fromUnitId)?.get(toUnitId);
+    if (direct && num(direct.factor) > 0) return num(direct.factor);
+    const reverse = store.get(toUnitId)?.get(fromUnitId);
+    if (reverse && num(reverse.factor) > 0) return 1 / num(reverse.factor);
+    return 0;
+  }
+
+  function shoppingListExactQuantityConversionFactor(productIdInput = 0, fromUnitIdInput = 0, toUnitIdInput = 0) {
     const productId = num(productIdInput);
-    if (!(productId > 0)) return 0;
+    const fromUnitId = num(fromUnitIdInput);
+    const toUnitId = num(toUnitIdInput);
+    if (!(fromUnitId > 0) || !(toUnitId > 0)) return 0;
+    if (fromUnitId === toUnitId) return 1;
+    if (productId > 0 && S.apiExactQuantityConversionsByProductId instanceof Map) {
+      const productStore = S.apiExactQuantityConversionsByProductId.get(productId);
+      const productFactor = exactQuantityConversionFactorFromStore(productStore, fromUnitId, toUnitId);
+      if (productFactor > 0) return productFactor;
+    }
+    return exactQuantityConversionFactorFromStore(S.apiExactQuantityConversionsGlobalByUnitId, fromUnitId, toUnitId);
+  }
+
+  function shoppingListRowQuantityUnitId(row) {
+    if (!row) return 0;
+    const actionLink = row.querySelector('a[href*="quId="], a[href*="qu_id="]');
+    const href = clean(actionLink?.getAttribute('href') || '');
+    if (href) {
+      const match = href.match(/[?&](?:quId|qu_id)=(\d+)/i);
+      if (match) return num(match[1]);
+    }
+    const attrNode = row.querySelector('[data-qu-id], [data-quid], [data-quantity-unit-id]');
+    return num(
+      attrNode?.getAttribute('data-qu-id')
+      || attrNode?.getAttribute('data-quid')
+      || attrNode?.getAttribute('data-quantity-unit-id')
+      || 0
+    );
+  }
+
+  function shoppingListConvertedChildUnitPrice(childIdInput = 0, targetUnitIdInput = 0) {
+    const childId = num(childIdInput);
+    const targetUnitId = num(targetUnitIdInput);
+    if (!(childId > 0) || !(targetUnitId > 0)) return 0;
+    const product = S.apiProductsById instanceof Map ? S.apiProductsById.get(childId) : null;
+    const stockUnitId = pickFirstNumber(product, ['qu_id_stock', 'stock_qu_id', 'quantity_unit_stock_id']);
+    const lastPurchased = S.apiLastPurchasedByProductId instanceof Map ? S.apiLastPurchasedByProductId.get(childId) : null;
+    const basePrice = num(lastPurchased && lastPurchased.price);
+    if (!(basePrice > 0) || !(stockUnitId > 0)) return 0;
+    const factor = shoppingListExactQuantityConversionFactor(childId, stockUnitId, targetUnitId);
+    if (!(factor > 0)) return 0;
+    return basePrice / factor;
+  }
+
+  function shoppingListParentAverageChildPrice(productIdInput = 0, targetUnitIdInput = 0) {
+    const productId = num(productIdInput);
+    const targetUnitId = num(targetUnitIdInput);
+    if (!(productId > 0) || !(targetUnitId > 0)) return 0;
     const children = S.apiProductChildrenByParentId instanceof Map ? S.apiProductChildrenByParentId.get(productId) : null;
     if (!Array.isArray(children) || children.length === 0) return 0;
     const prices = [];
     children.forEach((childIdInput) => {
-      const childId = num(childIdInput);
-      if (!(childId > 0)) return;
-      const childStock = S.apiStockByProductId instanceof Map ? S.apiStockByProductId.get(childId) : null;
-      const childPrice = childStock
-        ? (num(childStock.price) > 0 ? num(childStock.price) : num(childStock.avgPrice))
-        : 0;
-      if (childPrice > 0) prices.push(childPrice);
+      const convertedPrice = shoppingListConvertedChildUnitPrice(childIdInput, targetUnitId);
+      if (convertedPrice > 0) prices.push(convertedPrice);
     });
-    if (prices.length === 0) return 0;
+    if (!prices.length) return 0;
     const total = prices.reduce((sum, entry) => sum + num(entry), 0);
     return total > 0 ? (total / prices.length) : 0;
   }
@@ -19626,6 +19826,8 @@
       await Promise.all([
         refreshApiData(false).catch(() => false),
         loadProductHierarchyFromApi(false).catch(() => ({ byId: new Map(), childrenByParentId: new Map() })),
+        loadShoppingListLastPurchasedMapFromApi(false).catch(() => new Map()),
+        loadShoppingListExactQuantityConversionsFromApi(false).catch(() => ({ byProduct: new Map(), global: new Map() })),
       ]);
 
       shoppingListItemRows().forEach((row) => {
@@ -19640,7 +19842,10 @@
           || (S.apiProductChildrenByParentId instanceof Map && S.apiProductChildrenByParentId.has(productId));
         if (!isParent) return;
 
-        const avgChildPrice = shoppingListParentAverageChildPrice(productId);
+        const targetUnitId = shoppingListRowQuantityUnitId(row)
+          || pickFirstNumber(product, ['qu_id_purchase', 'purchase_qu_id', 'default_qu_id_purchase'])
+          || pickFirstNumber(product, ['qu_id_stock', 'stock_qu_id', 'quantity_unit_stock_id']);
+        const avgChildPrice = shoppingListParentAverageChildPrice(productId, targetUnitId);
         if (!(avgChildPrice > 0)) return;
 
         const cells = row.cells;
