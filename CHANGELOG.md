@@ -1,5 +1,10 @@
 # Changelog
 
+## [4.0.28] - 2026-03-13
+
+### Changed
+- Reworked the product edit `Grocycode` area so it stays full size by default and can now be reduced on demand with a toggle button.
+
 ## [4.0.27] - 2026-03-13
 
 ### Changed

@@ -10,7 +10,7 @@
   NERDCORE.registerAddon({
     id: 'producthelper',
     name: 'ProductHelper',
-    version: '4.0.27',
+    version: '4.0.28',
     settingsSection: 'producthelper',
     settingsTitle: 'ProductHelper',
     settingsIcon: 'fa-box-open',
@@ -29030,6 +29030,19 @@
       .grocy-product-grocycode-compact {
         margin-top: 0.35rem !important;
       }
+      .grocy-product-grocycode-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+      }
+      .grocy-product-grocycode-head h4 {
+        margin-bottom: 0;
+      }
+      .grocy-product-grocycode-toggle {
+        flex: 0 0 auto;
+      }
       .grocy-product-grocycode-compact .title-related-links {
         margin-bottom: 0.35rem;
       }
@@ -30717,17 +30730,50 @@
     return grocycodeDownload.closest('.row');
   }
 
-  function applyProductGrocycodeCompactMode(attemptInput = 0) {
+  function syncProductGrocycodeCompactToggleButton(buttonInput = null, compactInput = false) {
+    const button = buttonInput && buttonInput.nodeType === 1 ? buttonInput : null;
+    if (!button) return;
+    const compact = compactInput === true;
+    button.classList.toggle('is-on', compact);
+    button.classList.toggle('is-off', !compact);
+    button.setAttribute('aria-pressed', compact ? 'true' : 'false');
+    button.title = compact
+      ? langText('Agrandir Grocycode', 'Expand Grocycode')
+      : langText('Réduire Grocycode', 'Compact Grocycode');
+    button.innerHTML = compact
+      ? '<i class="fa-solid fa-expand"></i>'
+      : '<i class="fa-solid fa-compress"></i>';
+  }
+
+  function ensureProductGrocycodeCompactToggle(attemptInput = 0) {
     if (!isProductFormPage()) return;
     const attempt = Math.max(0, Math.trunc(num(attemptInput) || 0));
     const grocycodeRow = productGrocycodeSectionRow();
     if (!grocycodeRow) {
       if (attempt < 10) {
-        setTimeout(() => applyProductGrocycodeCompactMode(attempt + 1), 180);
+        setTimeout(() => ensureProductGrocycodeCompactToggle(attempt + 1), 180);
       }
       return;
     }
-    grocycodeRow.classList.add('grocy-product-grocycode-compact');
+    const titleWrap = grocycodeRow.querySelector('.title-related-links');
+    const heading = titleWrap ? titleWrap.querySelector('h4') : null;
+    if (!titleWrap || !heading) return;
+    titleWrap.classList.add('grocy-product-grocycode-head');
+
+    let button = titleWrap.querySelector('[data-grocycode-compact-toggle]');
+    if (!button) {
+      button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'btn btn-outline-secondary btn-sm grocy-off-btn-sm grocy-off-btn-toggle grocy-product-grocycode-toggle';
+      button.setAttribute('data-grocycode-compact-toggle', '1');
+      button.addEventListener('click', () => {
+        const compact = !grocycodeRow.classList.contains('grocy-product-grocycode-compact');
+        grocycodeRow.classList.toggle('grocy-product-grocycode-compact', compact);
+        syncProductGrocycodeCompactToggleButton(button, compact);
+      });
+      titleWrap.appendChild(button);
+    }
+    syncProductGrocycodeCompactToggleButton(button, grocycodeRow.classList.contains('grocy-product-grocycode-compact'));
   }
 
   function productSpecificConversionsRow() {
@@ -34097,7 +34143,7 @@
   function initProductOpenFoodFactsEnhancements() {
     patchUserfieldsFormSaveForProductForm();
     initProductFormTypeRules();
-    applyProductGrocycodeCompactMode();
+    ensureProductGrocycodeCompactToggle();
     initProductBrandControls();
     initProductEnergyVisibilityGuard();
     initProductEnergyRobotButton();
