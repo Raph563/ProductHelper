@@ -1,5 +1,10 @@
 # Changelog
 
+## [4.0.26] - 2026-03-13
+
+### Changed
+- Reduced the default `Grocycode` section footprint on the product edit page with a more compact QR block, tighter spacing, and cleaner alignment.
+
 ## [4.0.25] - 2026-03-13
 
 ### Changed

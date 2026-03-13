@@ -10,7 +10,7 @@
   NERDCORE.registerAddon({
     id: 'producthelper',
     name: 'ProductHelper',
-    version: '4.0.11',
+    version: '4.0.26',
     settingsSection: 'producthelper',
     settingsTitle: 'ProductHelper',
     settingsIcon: 'fa-box-open',
@@ -28569,6 +28569,47 @@
         margin-top: 0 !important;
         padding-top: 0 !important;
       }
+      .grocy-product-grocycode-compact {
+        margin-top: 0.35rem !important;
+      }
+      .grocy-product-grocycode-compact .title-related-links {
+        margin-bottom: 0.35rem;
+      }
+      .grocy-product-grocycode-compact h4 {
+        margin-bottom: 0.2rem;
+        font-size: 0.96em;
+      }
+      .grocy-product-grocycode-compact .col,
+      .grocy-product-grocycode-compact [class*="col-"] {
+        display: flex;
+        align-items: center;
+        gap: 0.9rem;
+      }
+      .grocy-product-grocycode-compact .col > *:last-child,
+      .grocy-product-grocycode-compact [class*="col-"] > *:last-child {
+        margin-left: auto;
+      }
+      .grocy-product-grocycode-compact img {
+        width: 72px !important;
+        max-width: 72px !important;
+        height: 72px !important;
+        object-fit: contain;
+      }
+      .grocy-product-grocycode-compact a[href*="/grocycode?download=true"] {
+        padding-top: 0.36rem;
+        padding-bottom: 0.36rem;
+      }
+      @media (max-width: 991.98px) {
+        .grocy-product-grocycode-compact .col,
+        .grocy-product-grocycode-compact [class*="col-"] {
+          gap: 0.7rem;
+        }
+        .grocy-product-grocycode-compact img {
+          width: 64px !important;
+          max-width: 64px !important;
+          height: 64px !important;
+        }
+      }
     `;
     document.head.appendChild(style);
   }
@@ -30216,6 +30257,19 @@
     const grocycodeDownload = document.querySelector('a[href*="/grocycode?download=true"]');
     if (!grocycodeDownload) return null;
     return grocycodeDownload.closest('.row');
+  }
+
+  function applyProductGrocycodeCompactMode(attemptInput = 0) {
+    if (!isProductFormPage()) return;
+    const attempt = Math.max(0, Math.trunc(num(attemptInput) || 0));
+    const grocycodeRow = productGrocycodeSectionRow();
+    if (!grocycodeRow) {
+      if (attempt < 10) {
+        setTimeout(() => applyProductGrocycodeCompactMode(attempt + 1), 180);
+      }
+      return;
+    }
+    grocycodeRow.classList.add('grocy-product-grocycode-compact');
   }
 
   function productSpecificConversionsRow() {
@@ -33585,6 +33639,7 @@
   function initProductOpenFoodFactsEnhancements() {
     patchUserfieldsFormSaveForProductForm();
     initProductFormTypeRules();
+    applyProductGrocycodeCompactMode();
     initProductBrandControls();
     initProductEnergyVisibilityGuard();
     initProductEnergyRobotButton();
