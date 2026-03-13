@@ -10,7 +10,7 @@
   NERDCORE.registerAddon({
     id: 'producthelper',
     name: 'ProductHelper',
-    version: '4.0.29',
+    version: '4.0.30',
     settingsSection: 'producthelper',
     settingsTitle: 'ProductHelper',
     settingsIcon: 'fa-box-open',
@@ -2096,6 +2096,8 @@
       missing_barcodes_selection_required: 'Sélection requise: valide la fiche avant création.',
       missing_barcodes_select_card_btn: 'Sélectionner cette fiche',
       missing_barcodes_amount_label: 'Quantité (préremplie)',
+      missing_barcodes_manual_code_label: 'Code-barres manuel',
+      missing_barcodes_manual_code_placeholder: 'Saisir un code-barres...',
       missing_barcodes_add_barcode_btn: 'Ajouter le code-barres',
       missing_barcodes_status_idle: 'Clique sur rafraîchir pour charger la liste.',
       missing_barcodes_status_empty: 'Aucun produit actif non parent sans code-barres.',
@@ -2111,6 +2113,7 @@
       missing_barcodes_status_parent: 'Ce produit est devenu parent: création bloquée.',
       missing_barcodes_status_inactive: 'Ce produit est inactif: création bloquée.',
       missing_barcodes_status_no_result: 'Aucun résultat fiable trouvé sur OFF/OPF.',
+      missing_barcodes_status_need_code: 'Saisis un code-barres manuel ou lance une recherche avant de créer.',
       missing_barcodes_card_product_id: 'ID produit: {{id}}',
       missing_barcodes_card_purchase_unit: 'Unité d\'achat: {{unit}} (#{{id}})',
       missing_barcodes_card_purchase_unit_missing: 'Unité d\'achat manquante',
@@ -2873,6 +2876,8 @@
       missing_barcodes_selection_required: 'Selection required: validate this card before creation.',
       missing_barcodes_select_card_btn: 'Select this card',
       missing_barcodes_amount_label: 'Amount (pre-filled)',
+      missing_barcodes_manual_code_label: 'Manual barcode',
+      missing_barcodes_manual_code_placeholder: 'Enter a barcode...',
       missing_barcodes_add_barcode_btn: 'Add barcode',
       missing_barcodes_status_idle: 'Click refresh to load the list.',
       missing_barcodes_status_empty: 'No active non-parent product without barcode.',
@@ -2888,6 +2893,7 @@
       missing_barcodes_status_parent: 'This product became a parent product: creation blocked.',
       missing_barcodes_status_inactive: 'This product is inactive: creation blocked.',
       missing_barcodes_status_no_result: 'No reliable OFF/OPF result found.',
+      missing_barcodes_status_need_code: 'Enter a manual barcode or run a lookup before creating.',
       missing_barcodes_card_product_id: 'Product ID: {{id}}',
       missing_barcodes_card_purchase_unit: 'Purchase unit: {{unit}} (#{{id}})',
       missing_barcodes_card_purchase_unit_missing: 'Missing purchase unit',
@@ -12099,6 +12105,14 @@
     return value > 0 ? value : 0;
   }
 
+  function readMissingBarcodesCardManualCode(productIdInput = 0) {
+    const productId = num(productIdInput);
+    if (!(productId > 0)) return '';
+    const card = missingBarcodeCardNodeByProductId(productId);
+    const input = card ? card.querySelector('[data-missing-barcode-manual-code]') : null;
+    return clean(input && input.value ? input.value : '').replace(/\s+/g, '');
+  }
+
   function missingBarcodeBrandSourceLabel(sourceInput = '') {
     const source = clean(sourceInput || '');
     if (source === 'field') return t('missing_barcodes_card_brand_source_field');
@@ -12646,6 +12660,20 @@
                     data-product-id="${productId}"
                     value="${escapeHtml(String(defaultAmount))}">
                 </div>
+                <div class="input-group input-group-sm">
+                  <div class="input-group-prepend">
+                    <span class="input-group-text">${escapeHtml(t('missing_barcodes_manual_code_label'))}</span>
+                  </div>
+                  <input
+                    type="text"
+                    class="form-control"
+                    data-missing-barcode-manual-code="1"
+                    data-product-id="${productId}"
+                    inputmode="numeric"
+                    autocomplete="off"
+                    spellcheck="false"
+                    placeholder="${escapeHtml(t('missing_barcodes_manual_code_placeholder'))}">
+                </div>
                 <div class="dash-missing-barcodes-card-buttons">
                   <button
                     type="button"
@@ -12654,6 +12682,13 @@
                     data-product-id="${productId}"
                     ${canCreate ? '' : 'disabled'}
                   >${escapeHtml(t('missing_barcodes_search_btn'))}</button>
+                  <button
+                    type="button"
+                    class="btn btn-outline-info btn-sm"
+                    data-missing-barcode-confirm="1"
+                    data-product-id="${productId}"
+                    ${canCreate ? '' : 'disabled'}
+                  >${escapeHtml(t('missing_barcodes_add_barcode_btn'))}</button>
                   <button
                     type="button"
                     class="btn btn-outline-warning btn-sm"
@@ -13021,12 +13056,14 @@
     if (!(productId > 0)) return;
     const state = missingBarcodeSectionState();
     const selection = state.pendingSelectionByProductId.get(productId);
-    if (!selection || !clean(selection.code || '')) {
-      setMissingBarcodesCardStatus(productId, t('missing_barcodes_status_stale'), 'warning');
+    const manualCode = readMissingBarcodesCardManualCode(productId);
+    const barcode = clean(manualCode || selection?.code || '');
+    if (!barcode) {
+      setMissingBarcodesCardStatus(productId, t('missing_barcodes_status_need_code'), 'warning');
       return;
     }
 
-    const amount = readMissingBarcodesCardAmount(productId, selection.amount || 1);
+    const amount = readMissingBarcodesCardAmount(productId, selection?.amount || 1);
     if (!(amount > 0)) {
       setMissingBarcodesCardStatus(productId, t('missing_barcodes_status_invalid_amount'), 'danger');
       return;
@@ -13049,7 +13086,7 @@
 
       await createProductBarcodeViaApi({
         productId,
-        barcode: selection.code,
+        barcode,
         quId: purchaseUnitId,
         amount,
         shoppingLocationId: null,
@@ -13066,8 +13103,8 @@
 
       renderMissingBarcodesSectionList();
       setMissingBarcodesSectionStatus(t('missing_barcodes_status_created', {
-        code: selection.code,
-        product: selection.productName || `#${productId}`,
+        code: barcode,
+        product: selection?.productName || state.byProductId.get(productId)?.productName || `#${productId}`,
       }), 'success');
     } catch (error) {
       const msg = clean(error && error.message ? error.message : String(error)) || t('focus_unknown_error');

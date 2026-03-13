@@ -1,5 +1,10 @@
 # Changelog
 
+## [4.0.30] - 2026-03-13
+
+### Changed
+- Added a manual barcode input on the `Products without barcodes` page so a barcode can be entered and created directly without waiting for a lookup result.
+
 ## [4.0.29] - 2026-03-13
 
 ### Changed
