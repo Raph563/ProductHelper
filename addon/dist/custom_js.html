@@ -8047,6 +8047,8 @@
         justify-content: space-between;
         gap: 1.25rem;
         padding: 1.05rem 1.15rem 1.05rem 1.2rem;
+        border-top-color: rgba(116,205,255,0.62);
+        border-bottom-color: rgba(74,182,255,0.58);
       }
       #dash_products_missing_barcodes_banner::before {
         content: '';
@@ -8058,11 +8060,16 @@
       #dash_products_missing_barcodes_banner::after {
         content: '';
         position: absolute;
-        inset: auto 1rem -2.2rem auto;
-        width: 9rem;
-        height: 9rem;
-        border-radius: 50%;
-        background: radial-gradient(circle, rgba(0,198,255,0.12), transparent 68%);
+        inset: 0 0 auto 0;
+        height: 1px;
+        background: linear-gradient(90deg, rgba(255,255,255,0.05), rgba(126,211,255,0.45), rgba(255,255,255,0.05));
+        pointer-events: none;
+      }
+      #dash_products_missing_barcodes_banner .dash-products-missing-barcodes-bottom-line {
+        position: absolute;
+        inset: auto 0 0 0;
+        height: 1px;
+        background: linear-gradient(90deg, rgba(255,255,255,0.04), rgba(0,198,255,0.4), rgba(255,255,255,0.04));
         pointer-events: none;
       }
       #dash_products_missing_barcodes_banner .dash-products-missing-barcodes-text {
@@ -8122,6 +8129,8 @@
         padding: 0.65rem 1rem;
         white-space: nowrap;
         align-self: center;
+        margin-left: auto;
+        flex: 0 0 auto;
       }
       @media (max-width: 767.98px) {
         #dash_products_missing_barcodes_banner {
@@ -15928,6 +15937,7 @@
           </span>
         </div>
         <a href="${escapeHtml(href)}" class="btn btn-outline-info btn-sm">${escapeHtml(t('products_missing_barcodes_banner_btn'))}</a>
+        <span class="dash-products-missing-barcodes-bottom-line"></span>
       `;
       host.insertBefore(banner, host.firstChild || null);
     } catch (_err) {}

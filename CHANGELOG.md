@@ -1,5 +1,10 @@
 # Changelog
 
+## [4.0.25] - 2026-03-13
+
+### Changed
+- Adjusted the `/products` missing-barcode banner so the action button stays clearly on the right and the band is visually delimited at the top and bottom.
+
 ## [4.0.24] - 2026-03-13
 
 ### Changed
