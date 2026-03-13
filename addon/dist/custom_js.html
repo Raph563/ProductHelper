@@ -2125,6 +2125,9 @@
       missing_barcodes_card_state_ignored: 'Produit ignoré globalement',
       products_missing_barcodes_banner_text: '{{count}} produit(s) actif(s) sans code-barres.',
       products_missing_barcodes_banner_btn: 'Ouvrir les codes-barres',
+      pagination_prev: 'Precedent',
+      pagination_next: 'Suivant',
+      pagination_page: 'Page {{current}} / {{total}}',
       settings_mode_label: 'Mode interface paramètres',
       settings_mode_basic: 'BASIC',
       settings_mode_advanced: 'ADVANCED',
@@ -2871,6 +2874,9 @@
       missing_barcodes_card_state_ignored: 'Product globally ignored',
       products_missing_barcodes_banner_text: '{{count}} active product(s) without barcode.',
       products_missing_barcodes_banner_btn: 'Open barcode helper',
+      pagination_prev: 'Previous',
+      pagination_next: 'Next',
+      pagination_page: 'Page {{current}} / {{total}}',
       settings_mode_label: 'Settings interface mode',
       settings_mode_basic: 'BASIC',
       settings_mode_advanced: 'ADVANCED',
@@ -11484,6 +11490,7 @@
     if (!(base.brandHintByProductId instanceof Map)) base.brandHintByProductId = new Map();
     if (!(base.lookupRunCacheByProductId instanceof Map)) base.lookupRunCacheByProductId = new Map();
     if (!(base.lookupRequestIdByProductId instanceof Map)) base.lookupRequestIdByProductId = new Map();
+    if (!(base.lookupBusyByProductId instanceof Map)) base.lookupBusyByProductId = new Map();
     if (!Array.isArray(base.products)) base.products = [];
     if (!Array.isArray(base.ignoredProducts)) base.ignoredProducts = [];
     base.loading = base.loading === true;
@@ -11491,8 +11498,9 @@
     base.ignoreError = clean(base.ignoreError || '');
     base.loadedAt = Math.max(0, num(base.loadedAt) || 0);
     base.lookupRequestSeq = Math.max(0, Math.floor(num(base.lookupRequestSeq) || 0));
-    base.renderStep = Math.max(20, Math.floor(num(base.renderStep) || 60));
+    base.renderStep = Math.max(12, Math.floor(num(base.renderStep) || 24));
     base.renderLimit = Math.max(base.renderStep, Math.floor(num(base.renderLimit) || base.renderStep));
+    base.currentPage = Math.max(1, Math.floor(num(base.currentPage) || 1));
     S.missingBarcodeSection = base;
     return base;
   }
@@ -11836,6 +11844,23 @@
     status.textContent = clean(text || '');
   }
 
+  function syncMissingBarcodeBusyState(productIdInput = 0) {
+    const productId = num(productIdInput);
+    if (!(productId > 0)) return;
+    const state = missingBarcodeSectionState();
+    const busyMeta = state.lookupBusyByProductId.get(productId);
+    const card = missingBarcodeCardNodeByProductId(productId);
+    if (!card) return;
+    const button = card.querySelector('[data-missing-barcode-search]');
+    if (!button) return;
+    if (busyMeta && busyMeta.busy === true) {
+      setButtonBusy(button, true);
+      setMissingBarcodesCardStatus(productId, clean(busyMeta.status || t('missing_barcodes_status_searching')), clean(busyMeta.level || 'info'));
+      return;
+    }
+    if (button.dataset.offOriginalHtml) setButtonBusy(button, false);
+  }
+
   function readMissingBarcodesCardAmount(productIdInput = 0, fallbackInput = 1) {
     const productId = num(productIdInput);
     const fallback = num(fallbackInput) > 0 ? num(fallbackInput) : 1;
@@ -12022,8 +12047,10 @@
   function renderMissingBarcodesSectionList() {
     const state = missingBarcodeSectionState();
     const host = document.getElementById('dash_missing_barcodes_list');
-    const moreWrap = document.getElementById('dash_missing_barcodes_more_wrap');
-    const moreNote = document.getElementById('dash_missing_barcodes_more_note');
+    const pagerWrap = document.getElementById('dash_missing_barcodes_pager_wrap');
+    const pagerNote = document.getElementById('dash_missing_barcodes_pager_note');
+    const pagerPrev = document.getElementById('dash_missing_barcodes_prev');
+    const pagerNext = document.getElementById('dash_missing_barcodes_next');
     const ignoredWrap = document.getElementById('dash_missing_barcodes_ignored_wrap');
     const ignoredDetails = document.getElementById('dash_missing_barcodes_ignored_details');
     const ignoredSummary = document.getElementById('dash_missing_barcodes_ignored_summary');
@@ -12047,11 +12074,14 @@
         ? t('missing_barcodes_status_empty')
         : t('missing_barcodes_status_idle');
       host.innerHTML = `<div class="small text-muted">${escapeHtml(emptyLabel)}</div>`;
-      if (moreWrap) moreWrap.classList.add('d-none');
-      if (moreNote) moreNote.textContent = '';
+      if (pagerWrap) pagerWrap.classList.add('d-none');
+      if (pagerNote) pagerNote.textContent = '';
     } else {
-      const limit = Math.max(state.renderStep, Math.floor(num(state.renderLimit) || state.renderStep));
-      const visibleProducts = products.slice(0, Math.min(limit, products.length));
+      const pageSize = Math.max(1, Math.floor(num(state.renderStep) || 24));
+      const totalPages = Math.max(1, Math.ceil(products.length / pageSize));
+      state.currentPage = Math.min(Math.max(1, state.currentPage), totalPages);
+      const startIndex = (state.currentPage - 1) * pageSize;
+      const visibleProducts = products.slice(startIndex, startIndex + pageSize);
 
       host.innerHTML = visibleProducts.map((entry) => {
         const productId = num(entry.productId);
@@ -12117,17 +12147,13 @@
       state.pendingSelectionByProductId.forEach((_value, productId) => {
         renderMissingBarcodesLookupCard(productId);
       });
-
-      if (moreWrap) {
-        if (visibleProducts.length < products.length) {
-          moreWrap.classList.remove('d-none');
-        } else {
-          moreWrap.classList.add('d-none');
-        }
+      visibleProducts.forEach((entry) => syncMissingBarcodeBusyState(entry.productId));
+      if (pagerWrap) pagerWrap.classList.toggle('d-none', totalPages <= 1);
+      if (pagerNote) {
+        pagerNote.textContent = `${t('pagination_page', { current: fmt(state.currentPage, 0), total: fmt(totalPages, 0) })} - ${fmt(startIndex + 1, 0)}-${fmt(startIndex + visibleProducts.length, 0)} / ${fmt(products.length, 0)}`;
       }
-      if (moreNote) {
-        moreNote.textContent = `${fmt(visibleProducts.length, 0)} / ${fmt(products.length, 0)} ${langText('affichés', 'shown')}`;
-      }
+      if (pagerPrev) pagerPrev.disabled = state.currentPage <= 1;
+      if (pagerNext) pagerNext.disabled = state.currentPage >= totalPages;
     }
 
     if (!ignoredWrap || !ignoredDetails || !ignoredHost || !ignoredSummary) return;
@@ -12185,6 +12211,7 @@
       state.ignoreAvailable = snapshot?.ignoreAvailable === true;
       state.ignoreError = clean(snapshot?.ignoreError || '');
       state.renderLimit = state.renderStep;
+      state.currentPage = 1;
 
       rebuildMissingBarcodeSectionIndexes(state);
 
@@ -12203,6 +12230,9 @@
       });
       state.lookupRequestIdByProductId.forEach((_value, productId) => {
         if (!validIds.has(num(productId))) state.lookupRequestIdByProductId.delete(productId);
+      });
+      state.lookupBusyByProductId.forEach((_value, productId) => {
+        if (!validIds.has(num(productId))) state.lookupBusyByProductId.delete(productId);
       });
 
       state.loadedAt = Date.now();
@@ -12315,6 +12345,11 @@
     state.lookupRequestSeq += 1;
     const requestId = state.lookupRequestSeq;
     state.lookupRequestIdByProductId.set(productId, requestId);
+    state.lookupBusyByProductId.set(productId, {
+      busy: true,
+      status: t('missing_barcodes_status_searching'),
+      level: 'info',
+    });
 
     try {
       const brandInfo = await fetchMissingBarcodeBrandHint(productId, product.productName);
@@ -12334,6 +12369,7 @@
       const code = clean(best && best.code ? best.code : '');
       if (num(state.lookupRequestIdByProductId.get(productId)) !== requestId) return;
       if (!code) {
+        state.lookupBusyByProductId.delete(productId);
         setMissingBarcodesCardStatus(productId, t('missing_barcodes_status_no_result'), 'warning');
         return;
       }
@@ -12361,17 +12397,19 @@
       };
 
       state.pendingSelectionByProductId.set(productId, selection);
+      state.lookupBusyByProductId.delete(productId);
       renderMissingBarcodesLookupCard(productId);
       setMissingBarcodesCardStatus(productId, t('missing_barcodes_selection_required'), 'info');
     } catch (error) {
       if (num(state.lookupRequestIdByProductId.get(productId)) !== requestId) return;
+      state.lookupBusyByProductId.delete(productId);
       const msg = clean(error && error.message ? error.message : String(error)) || t('focus_unknown_error');
       setMissingBarcodesCardStatus(productId, t('missing_barcodes_lookup_error', { msg }), 'danger');
     } finally {
       if (num(state.lookupRequestIdByProductId.get(productId)) === requestId) {
         state.lookupRequestIdByProductId.delete(productId);
       }
-      if (button) setButtonBusy(button, false);
+      syncMissingBarcodeBusyState(productId);
     }
   }
 
@@ -12493,6 +12531,7 @@
       state.brandHintByProductId.delete(productId);
       state.lookupRunCacheByProductId.delete(productId);
       state.lookupRequestIdByProductId.delete(productId);
+      state.lookupBusyByProductId.delete(productId);
       state.products = state.products.filter((entry) => num(entry.productId) !== productId);
       state.ignoredProducts = state.ignoredProducts.filter((entry) => num(entry.productId) !== productId);
       rebuildMissingBarcodeSectionIndexes(state);
@@ -12891,7 +12930,8 @@
       'dash_facts_test_opf',
       'dash_facts_test_active',
       'dash_missing_barcodes_refresh',
-      'dash_missing_barcodes_more',
+      'dash_missing_barcodes_prev',
+      'dash_missing_barcodes_next',
       'dash_addon_compat_run',
       'dash_addon_compat_map',
       'dash_addon_compat_reoffer',
@@ -14171,9 +14211,10 @@
         </div>
       </div>
       <div id="dash_missing_barcodes_list" class="dash-missing-barcodes-list"></div>
-      <div id="dash_missing_barcodes_more_wrap" class="d-none mt-2">
-        <button id="dash_missing_barcodes_more" type="button" class="btn btn-outline-info btn-sm">${escapeHtml(langText('Afficher plus', 'Show more'))}</button>
-        <span id="dash_missing_barcodes_more_note" class="small text-muted ml-2"></span>
+      <div id="dash_missing_barcodes_pager_wrap" class="d-none mt-2 d-flex flex-wrap align-items-center">
+        <button id="dash_missing_barcodes_prev" type="button" class="btn btn-outline-secondary btn-sm mr-2 mb-1">${escapeHtml(t('pagination_prev'))}</button>
+        <button id="dash_missing_barcodes_next" type="button" class="btn btn-outline-info btn-sm mr-2 mb-1">${escapeHtml(t('pagination_next'))}</button>
+        <span id="dash_missing_barcodes_pager_note" class="small text-muted mb-1"></span>
       </div>
       <div id="dash_missing_barcodes_ignore_hint" class="small mt-1 text-muted d-none"></div>
       <div id="dash_missing_barcodes_ignored_wrap" class="mt-2 d-none">
@@ -14198,9 +14239,14 @@
       section.querySelector('#dash_missing_barcodes_refresh')?.addEventListener('click', () => {
         refreshMissingBarcodesSettingsSection().catch(() => null);
       });
-      section.querySelector('#dash_missing_barcodes_more')?.addEventListener('click', () => {
+      section.querySelector('#dash_missing_barcodes_prev')?.addEventListener('click', () => {
         const state = missingBarcodeSectionState();
-        state.renderLimit = Math.max(state.renderStep, Math.floor(num(state.renderLimit) || state.renderStep)) + state.renderStep;
+        state.currentPage = Math.max(1, state.currentPage - 1);
+        renderMissingBarcodesSectionList();
+      });
+      section.querySelector('#dash_missing_barcodes_next')?.addEventListener('click', () => {
+        const state = missingBarcodeSectionState();
+        state.currentPage = Math.max(1, state.currentPage + 1);
         renderMissingBarcodesSectionList();
       });
       section.querySelector('#dash_missing_barcodes_list')?.addEventListener('click', (event) => {

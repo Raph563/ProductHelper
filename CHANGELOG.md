@@ -1,5 +1,11 @@
 # Changelog
 
+## [4.0.17] - 2026-03-13
+
+### Changed
+- Missing-barcode search animations now stay active even when another card is ignored or completed, thanks to persistent per-card lookup busy state across rerenders.
+- Replaced the huge continuous missing-barcode list with real page navigation (previous/next + page indicator) on the dedicated page.
+
 ## [4.0.16] - 2026-03-13
 
 ### Changed
