@@ -10,7 +10,7 @@
   NERDCORE.registerAddon({
     id: 'producthelper',
     name: 'ProductHelper',
-    version: '4.0.34',
+    version: '4.0.35',
     settingsSection: 'producthelper',
     settingsTitle: 'ProductHelper',
     settingsIcon: 'fa-box-open',
@@ -34760,7 +34760,6 @@
     }
 
     safeRun('refreshProductsMissingBarcodesBanner', () => { refreshProductsMissingBarcodesBanner().catch(() => null); });
-    safeRun('initShoppingListParentAveragePricePatch', () => initShoppingListParentAveragePricePatch());
     safeRun('initProductStatusTerminal', () => initProductStatusTerminal());
     safeRun('initProductImageSearchButton', () => initProductImageSearchButton());
     safeRun('initNormalizedUnitPriceEnhancements', () => initNormalizedUnitPriceEnhancements());

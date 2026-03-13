@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.0.35] - 2026-03-13
+
+### Changed
+- Moved parent-product shopping-list pricing to a backend SQLite cache sync on Grocy so parent prices are already available in `cache__products_last_purchased` before the shopping list page opens.
+- Removed the client-side shopping-list parent-price initialization, since the list now reads the persisted backend values directly.
+- Added a Grocy shopping-list template patch script so server-rendered totals keep the backend-computed `last_price_total` values instead of overwriting them during page rendering.
+
 ## [4.0.34] - 2026-03-13
 
 ### Changed
