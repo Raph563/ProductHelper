@@ -1,5 +1,11 @@
 # Changelog
 
+## [4.0.21] - 2026-03-13
+
+### Changed
+- Dedicated missing-barcodes page now refreshes automatically on open.
+- Removed the manual `Refresh` button from the dedicated missing-barcodes page while keeping it on non-dedicated contexts.
+
 ## [4.0.20] - 2026-03-13
 
 ### Changed
