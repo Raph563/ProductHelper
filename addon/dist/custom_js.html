@@ -10,7 +10,7 @@
   NERDCORE.registerAddon({
     id: 'producthelper',
     name: 'ProductHelper',
-    version: '4.0.26',
+    version: '4.0.27',
     settingsSection: 'producthelper',
     settingsTitle: 'ProductHelper',
     settingsIcon: 'fa-box-open',
@@ -217,6 +217,14 @@
     initialBrandLinkMigrationPromise: null,
     manageDataBrandObserver: null,
     manageDataBrandEnsureTimer: null,
+    bulkProductEdit: {
+      loading: false,
+      running: false,
+      loadedAt: 0,
+      products: [],
+      shoppingLocations: [],
+      locations: [],
+    },
   };
 
   const CHART_IDS = [
@@ -2124,6 +2132,31 @@
       missing_barcodes_status_ignore_unavailable: 'Fonction ignorer indisponible: {{msg}}',
       missing_barcodes_status_ignore_disabled: 'Ignorer indisponible (droits API manquants).',
       missing_barcodes_card_state_ignored: 'Produit ignoré globalement',
+      settings_section_bulk_product_update: 'Modification de masse produits',
+      bulk_product_update_desc: 'Remplace en masse le magasin d’achat ou l’emplacement de stock sur les fiches produit.',
+      bulk_product_update_open_page: 'Ouvrir la page dédiée',
+      bulk_product_update_refresh_btn: 'Recharger les listes',
+      bulk_product_update_store_title: 'Remplacer un magasin par un autre',
+      bulk_product_update_location_title: 'Remplacer un emplacement par un autre',
+      bulk_product_update_from_store_label: 'Magasin source',
+      bulk_product_update_to_store_label: 'Nouveau magasin',
+      bulk_product_update_from_location_label: 'Emplacement source',
+      bulk_product_update_to_location_label: 'Nouvel emplacement',
+      bulk_product_update_select_placeholder: 'Choisir...',
+      bulk_product_update_count_label: '{{count}} produit(s) seront modifiés.',
+      bulk_product_update_count_zero: 'Aucun produit correspondant pour cette source.',
+      bulk_product_update_apply_store_btn: 'Remplacer les magasins',
+      bulk_product_update_apply_location_btn: 'Remplacer les emplacements',
+      bulk_product_update_status_loading: 'Chargement des produits, magasins et emplacements...',
+      bulk_product_update_status_ready: 'Outil prêt: {{products}} produit(s), {{stores}} magasin(s), {{locations}} emplacement(s).',
+      bulk_product_update_status_invalid: 'Choisis une source et une cible différentes.',
+      bulk_product_update_status_running: 'Mise à jour {{label}} en cours: {{done}} / {{total}}.',
+      bulk_product_update_status_done: '{{count}} produit(s) mis à jour pour {{label}}.',
+      bulk_product_update_status_partial: '{{done}} / {{total}} produit(s) mis à jour pour {{label}}. Erreurs: {{errors}}.',
+      bulk_product_update_status_error: 'Modification de masse impossible: {{msg}}',
+      bulk_product_update_label_store: 'magasin',
+      bulk_product_update_label_location: 'emplacement',
+      bulk_product_update_confirm: 'Confirmer le remplacement {{label}} de "{{from}}" vers "{{to}}" sur {{count}} produit(s) ?',
       products_missing_barcodes_banner_text: '{{count}} produit(s) actif(s) sans code-barres.',
       products_missing_barcodes_banner_btn: 'Ouvrir les codes-barres',
       pagination_prev: 'Precedent',
@@ -2244,6 +2277,8 @@
       settings_page_missing_barcodes_title: 'Produits sans code-barres',
       settings_page_missing_barcodes_desc: 'Page dédiée pour traiter les produits sans code-barres avec recherche, ignore et réactivation côté serveur.',
       settings_page_open_dedicated_missing_barcodes: 'Ouvrir la page dédiée',
+      settings_page_bulk_update_title: 'Modification de masse produits',
+      settings_page_bulk_update_desc: 'Page dédiée pour remplacer rapidement un magasin ou un emplacement sur un lot de produits.',
       settings_group_general: 'Réglages généraux',
       settings_group_product_data: 'Données produit (OFF/OPF)',
       settings_group_barcodes: 'Codes-barres à ajouter',
@@ -2874,6 +2909,31 @@
       missing_barcodes_status_ignore_unavailable: 'Ignore unavailable: {{msg}}',
       missing_barcodes_status_ignore_disabled: 'Ignore unavailable (missing API permissions).',
       missing_barcodes_card_state_ignored: 'Product globally ignored',
+      settings_section_bulk_product_update: 'Bulk product update',
+      bulk_product_update_desc: 'Replace the shopping location or stock location across many product cards at once.',
+      bulk_product_update_open_page: 'Open dedicated page',
+      bulk_product_update_refresh_btn: 'Reload lists',
+      bulk_product_update_store_title: 'Replace one store with another',
+      bulk_product_update_location_title: 'Replace one location with another',
+      bulk_product_update_from_store_label: 'Source store',
+      bulk_product_update_to_store_label: 'New store',
+      bulk_product_update_from_location_label: 'Source location',
+      bulk_product_update_to_location_label: 'New location',
+      bulk_product_update_select_placeholder: 'Choose...',
+      bulk_product_update_count_label: '{{count}} product(s) will be updated.',
+      bulk_product_update_count_zero: 'No matching product for this source.',
+      bulk_product_update_apply_store_btn: 'Replace stores',
+      bulk_product_update_apply_location_btn: 'Replace locations',
+      bulk_product_update_status_loading: 'Loading products, stores, and locations...',
+      bulk_product_update_status_ready: 'Tool ready: {{products}} product(s), {{stores}} store(s), {{locations}} location(s).',
+      bulk_product_update_status_invalid: 'Choose a different source and target.',
+      bulk_product_update_status_running: 'Bulk update {{label}} running: {{done}} / {{total}}.',
+      bulk_product_update_status_done: '{{count}} product(s) updated for {{label}}.',
+      bulk_product_update_status_partial: '{{done}} / {{total}} product(s) updated for {{label}}. Errors: {{errors}}.',
+      bulk_product_update_status_error: 'Bulk update failed: {{msg}}',
+      bulk_product_update_label_store: 'store',
+      bulk_product_update_label_location: 'location',
+      bulk_product_update_confirm: 'Confirm replacing {{label}} from \"{{from}}\" to \"{{to}}\" on {{count}} product(s)?',
       products_missing_barcodes_banner_text: '{{count}} active product(s) without barcode.',
       products_missing_barcodes_banner_btn: 'Open barcode helper',
       pagination_prev: 'Previous',
@@ -2994,6 +3054,8 @@
       settings_page_missing_barcodes_title: 'Products without barcodes',
       settings_page_missing_barcodes_desc: 'Dedicated page to process products without barcodes with lookup, ignore, and server-side restore flow.',
       settings_page_open_dedicated_missing_barcodes: 'Open dedicated page',
+      settings_page_bulk_update_title: 'Bulk product update',
+      settings_page_bulk_update_desc: 'Dedicated page to replace a store or location across many products quickly.',
       settings_group_general: 'General settings',
       settings_group_product_data: 'Product data (OFF/OPF)',
       settings_group_barcodes: 'Barcodes to add',
@@ -11982,6 +12044,304 @@
     };
   }
 
+  function bulkProductEditState() {
+    if (!S.bulkProductEdit || typeof S.bulkProductEdit !== 'object') {
+      S.bulkProductEdit = {
+        loading: false,
+        running: false,
+        loadedAt: 0,
+        products: [],
+        shoppingLocations: [],
+        locations: [],
+      };
+    }
+    return S.bulkProductEdit;
+  }
+
+  function bulkProductUpdateConfig(fieldNameInput = '') {
+    const fieldName = clean(fieldNameInput || '');
+    if (fieldName === 'shopping_location_id') {
+      return {
+        fieldName,
+        label: t('bulk_product_update_label_store'),
+        sourceKeys: ['shopping_location_id', 'shoppingLocationId'],
+        sourceSelectId: 'dash_bulk_update_store_from',
+        targetSelectId: 'dash_bulk_update_store_to',
+        countId: 'dash_bulk_update_store_count',
+        buttonId: 'dash_bulk_update_store_apply',
+        optionsKey: 'shoppingLocations',
+      };
+    }
+    return {
+      fieldName: 'location_id',
+      label: t('bulk_product_update_label_location'),
+      sourceKeys: ['location_id', 'locationId'],
+      sourceSelectId: 'dash_bulk_update_location_from',
+      targetSelectId: 'dash_bulk_update_location_to',
+      countId: 'dash_bulk_update_location_count',
+      buttonId: 'dash_bulk_update_location_apply',
+      optionsKey: 'locations',
+    };
+  }
+
+  function setBulkProductUpdateStatus(text = '', level = 'muted') {
+    const node = document.getElementById('dash_bulk_product_update_status');
+    if (!node) return;
+    node.className = `small mt-2 text-${level}`;
+    node.textContent = clean(text || '');
+  }
+
+  function setBulkProductUpdateControlsDisabled(disabledInput = false) {
+    const disabled = disabledInput === true;
+    document.querySelectorAll('[data-bulk-product-update-control="1"]').forEach((node) => {
+      if (!node) return;
+      node.disabled = disabled;
+    });
+  }
+
+  function bulkProductEditOptionLabelFromRow(rowInput = {}) {
+    const row = rowInput && typeof rowInput === 'object' ? rowInput : {};
+    return clean(pickFirstString(row, ['name', 'title', 'description', 'location_name', 'shopping_location_name']));
+  }
+
+  function normalizeBulkProductEditOptionRows(payloadInput) {
+    let rows = extractArray(payloadInput);
+    if (rows.length === 0) {
+      rows = deepCollectObjects(
+        payloadInput,
+        (row) => hasAnyKey(row, ['id']) && hasAnyKey(row, ['name', 'title', 'description', 'location_name', 'shopping_location_name'])
+      );
+    }
+    const byId = new Map();
+    rows.forEach((row) => {
+      const id = pickFirstNumber(row, ['id', 'location_id', 'shopping_location_id']);
+      const name = bulkProductEditOptionLabelFromRow(row);
+      if (!(id > 0) || !name) return;
+      if (!byId.has(id)) byId.set(id, { id, name });
+    });
+    return Array.from(byId.values()).sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }));
+  }
+
+  function bulkProductEditProductsFieldValue(rowInput = null, fieldNameInput = 'location_id') {
+    const row = rowInput && typeof rowInput === 'object' ? rowInput : {};
+    const config = bulkProductUpdateConfig(fieldNameInput);
+    return pickFirstNumber(row, config.sourceKeys);
+  }
+
+  function renderBulkProductUpdateSelectOptions(selectIdInput = '', rowsInput = [], selectedValueInput = '') {
+    const select = document.getElementById(selectIdInput);
+    if (!select) return;
+    const rows = Array.isArray(rowsInput) ? rowsInput : [];
+    const selectedValue = clean(selectedValueInput || '');
+    const placeholder = escapeHtml(t('bulk_product_update_select_placeholder'));
+    const optionsHtml = [`<option value="">${placeholder}</option>`];
+    rows.forEach((row) => {
+      const id = num(row && row.id);
+      const name = clean(row && row.name);
+      if (!(id > 0) || !name) return;
+      const selected = selectedValue === String(id) ? ' selected' : '';
+      optionsHtml.push(`<option value="${escapeHtml(String(id))}"${selected}>${escapeHtml(name)}</option>`);
+    });
+    select.innerHTML = optionsHtml.join('');
+  }
+
+  function bulkProductUpdateCountForSource(fieldNameInput = 'location_id', sourceIdInput = 0) {
+    const state = bulkProductEditState();
+    const sourceId = num(sourceIdInput);
+    if (!(sourceId > 0)) return 0;
+    return (Array.isArray(state.products) ? state.products : []).reduce((count, row) => {
+      return count + (bulkProductEditProductsFieldValue(row, fieldNameInput) === sourceId ? 1 : 0);
+    }, 0);
+  }
+
+  function bulkProductUpdateOptionName(fieldNameInput = 'location_id', optionIdInput = 0) {
+    const state = bulkProductEditState();
+    const optionId = num(optionIdInput);
+    if (!(optionId > 0)) return '';
+    const config = bulkProductUpdateConfig(fieldNameInput);
+    const rows = Array.isArray(state[config.optionsKey]) ? state[config.optionsKey] : [];
+    const match = rows.find((row) => num(row && row.id) === optionId);
+    return clean(match && match.name);
+  }
+
+  function refreshBulkProductUpdateCounters() {
+    ['shopping_location_id', 'location_id'].forEach((fieldName) => {
+      const config = bulkProductUpdateConfig(fieldName);
+      const sourceId = num(document.getElementById(config.sourceSelectId)?.value || 0);
+      const countNode = document.getElementById(config.countId);
+      if (!countNode) return;
+      const count = bulkProductUpdateCountForSource(fieldName, sourceId);
+      countNode.textContent = sourceId > 0
+        ? t(count > 0 ? 'bulk_product_update_count_label' : 'bulk_product_update_count_zero', { count: fmt(count, 0) })
+        : '';
+    });
+  }
+
+  async function loadBulkProductEditData(optionsInput = {}) {
+    const options = optionsInput && typeof optionsInput === 'object' ? optionsInput : {};
+    const state = bulkProductEditState();
+    const force = options.force === true;
+    const now = Date.now();
+    if (!force && state.loadedAt > 0 && (now - state.loadedAt) < (2 * 60 * 1000) && state.products.length > 0) {
+      return state;
+    }
+    if (state.loading) return state;
+    state.loading = true;
+    try {
+      const [productsPayload, shoppingLocationsPayload, locationsPayload] = await Promise.all([
+        fetchJson('api/objects/products'),
+        fetchJson('api/objects/shopping_locations'),
+        fetchJson('api/objects/locations'),
+      ]);
+      let products = extractArray(productsPayload);
+      if (products.length === 0) {
+        products = deepCollectObjects(productsPayload, (row) => hasAnyKey(row, ['id']) && hasAnyKey(row, ['name']));
+      }
+      state.products = Array.isArray(products) ? products : [];
+      state.shoppingLocations = normalizeBulkProductEditOptionRows(shoppingLocationsPayload);
+      state.locations = normalizeBulkProductEditOptionRows(locationsPayload);
+      state.loadedAt = Date.now();
+      return state;
+    } finally {
+      state.loading = false;
+    }
+  }
+
+  async function fillBulkProductUpdateSection(forceInput = false) {
+    const section = document.getElementById('dash_bulk_product_update_section');
+    if (!section) return;
+    const state = bulkProductEditState();
+    setBulkProductUpdateControlsDisabled(state.running === true);
+    if (state.running !== true) {
+      setBulkProductUpdateStatus(t('bulk_product_update_status_loading'), 'info');
+    }
+    try {
+      await loadBulkProductEditData({ force: forceInput === true });
+      renderBulkProductUpdateSelectOptions('dash_bulk_update_store_from', state.shoppingLocations);
+      renderBulkProductUpdateSelectOptions('dash_bulk_update_store_to', state.shoppingLocations);
+      renderBulkProductUpdateSelectOptions('dash_bulk_update_location_from', state.locations);
+      renderBulkProductUpdateSelectOptions('dash_bulk_update_location_to', state.locations);
+      refreshBulkProductUpdateCounters();
+      if (state.running !== true) {
+        setBulkProductUpdateStatus(t('bulk_product_update_status_ready', {
+          products: fmt(state.products.length, 0),
+          stores: fmt(state.shoppingLocations.length, 0),
+          locations: fmt(state.locations.length, 0),
+        }), 'muted');
+      }
+    } catch (error) {
+      setBulkProductUpdateStatus(t('bulk_product_update_status_error', { msg: clean(error?.message || error || t('focus_unknown_error')) }), 'danger');
+    }
+  }
+
+  async function runBulkProductFieldReplace(fieldNameInput = 'location_id') {
+    const config = bulkProductUpdateConfig(fieldNameInput);
+    const state = bulkProductEditState();
+    if (state.running) return;
+
+    const sourceId = num(document.getElementById(config.sourceSelectId)?.value || 0);
+    const targetId = num(document.getElementById(config.targetSelectId)?.value || 0);
+    if (!(sourceId > 0) || !(targetId > 0) || sourceId === targetId) {
+      setBulkProductUpdateStatus(t('bulk_product_update_status_invalid'), 'warning');
+      return;
+    }
+
+    await loadBulkProductEditData();
+    const matchingRows = (Array.isArray(state.products) ? state.products : []).filter((row) => (
+      bulkProductEditProductsFieldValue(row, config.fieldName) === sourceId && num(row && row.id) > 0
+    ));
+    if (matchingRows.length === 0) {
+      refreshBulkProductUpdateCounters();
+      setBulkProductUpdateStatus(t('bulk_product_update_count_zero'), 'warning');
+      return;
+    }
+
+    const fromLabel = bulkProductUpdateOptionName(config.fieldName, sourceId) || String(sourceId);
+    const toLabel = bulkProductUpdateOptionName(config.fieldName, targetId) || String(targetId);
+    const confirmed = window.confirm(t('bulk_product_update_confirm', {
+      label: config.label,
+      from: fromLabel,
+      to: toLabel,
+      count: fmt(matchingRows.length, 0),
+    }));
+    if (!confirmed) return;
+
+    const actionButton = document.getElementById(config.buttonId);
+    state.running = true;
+    setBulkProductUpdateControlsDisabled(true);
+    if (actionButton) setButtonBusy(actionButton, true);
+
+    let completed = 0;
+    let successCount = 0;
+    let errorCount = 0;
+    let cursor = 0;
+    const workers = Math.min(6, matchingRows.length);
+
+    const updateProgress = () => {
+      setBulkProductUpdateStatus(t('bulk_product_update_status_running', {
+        label: config.label,
+        done: fmt(completed, 0),
+        total: fmt(matchingRows.length, 0),
+      }), 'info');
+    };
+    updateProgress();
+
+    async function worker() {
+      while (true) {
+        const index = cursor;
+        cursor += 1;
+        if (index >= matchingRows.length) return;
+        const row = matchingRows[index];
+        const productId = num(row && row.id);
+        if (!(productId > 0)) {
+          completed += 1;
+          errorCount += 1;
+          updateProgress();
+          continue;
+        }
+        try {
+          await putJson(`api/objects/products/${productId}`, { [config.fieldName]: targetId });
+          successCount += 1;
+        } catch (_error) {
+          errorCount += 1;
+        } finally {
+          completed += 1;
+          if (completed === matchingRows.length || completed % 5 === 0) updateProgress();
+        }
+      }
+    }
+
+    try {
+      await Promise.all(Array.from({ length: workers }, () => worker()));
+      await loadBulkProductEditData({ force: true });
+      ['shopping_location_id', 'location_id'].forEach((fieldName) => {
+        const nextConfig = bulkProductUpdateConfig(fieldName);
+        renderBulkProductUpdateSelectOptions(nextConfig.sourceSelectId, bulkProductEditState()[nextConfig.optionsKey]);
+        renderBulkProductUpdateSelectOptions(nextConfig.targetSelectId, bulkProductEditState()[nextConfig.optionsKey]);
+      });
+      refreshBulkProductUpdateCounters();
+      if (errorCount > 0) {
+        setBulkProductUpdateStatus(t('bulk_product_update_status_partial', {
+          label: config.label,
+          done: fmt(successCount, 0),
+          total: fmt(matchingRows.length, 0),
+          errors: fmt(errorCount, 0),
+        }), 'warning');
+      } else {
+        setBulkProductUpdateStatus(t('bulk_product_update_status_done', {
+          label: config.label,
+          count: fmt(successCount, 0),
+        }), 'success');
+      }
+    } catch (error) {
+      setBulkProductUpdateStatus(t('bulk_product_update_status_error', { msg: clean(error?.message || error || t('focus_unknown_error')) }), 'danger');
+    } finally {
+      state.running = false;
+      setBulkProductUpdateControlsDisabled(false);
+      if (actionButton) setButtonBusy(actionButton, false);
+    }
+  }
+
   async function fetchMissingBarcodeProductsWithoutBarcode(optionsInput = {}) {
     const options = optionsInput && typeof optionsInput === 'object' ? optionsInput : {};
     const includeUnits = options.includeUnits !== false;
@@ -12832,6 +13192,7 @@
     setGroupLogoMenuOpen(false);
     setGroupLogoEditorStatus('', 'muted');
     fillPhotoSearchSettingsForm();
+    fillBulkProductUpdateSection(false).catch(() => null);
     fillBarcodeLookupSettingsForm();
     setFactsApiTestStatus('', 'muted');
     fillMissingBarcodesSettingsSection();
@@ -14246,6 +14607,89 @@
     }
   }
 
+  function ensureBulkProductUpdateSection() {
+    const overlay = document.getElementById('dash_ai_settings_overlay');
+    if (!overlay) return;
+    if (document.getElementById('dash_bulk_product_update_section')) return;
+
+    const body = overlay.querySelector('.card-body');
+    if (!body) return;
+
+    const isDedicatedBulkPage = requestedProductHelperPageFromUrl() === 'bulk_update';
+    const dedicatedPageButtonHtml = isDedicatedBulkPage
+      ? ''
+      : `<a href="${escapeHtml(productHelperSettingsLink('product_data', 'bulk_update'))}" class="btn btn-outline-info btn-sm mr-2 mb-1">${escapeHtml(t('bulk_product_update_open_page'))}</a>`;
+
+    const section = document.createElement('div');
+    section.id = 'dash_bulk_product_update_section';
+    section.className = 'dash-settings-section p-2 mt-3';
+    section.innerHTML = `
+      <div class="small font-weight-bold mb-2">${t('settings_section_bulk_product_update')}</div>
+      <div class="small text-muted mb-2">${t('bulk_product_update_desc')}</div>
+      <div class="d-flex flex-wrap align-items-center mb-2">
+        ${dedicatedPageButtonHtml}
+        <button id="dash_bulk_product_update_refresh" type="button" class="btn btn-outline-secondary btn-sm mb-1" data-bulk-product-update-control="1">${escapeHtml(t('bulk_product_update_refresh_btn'))}</button>
+      </div>
+      <div class="row">
+        <div class="col-lg-6 mb-2">
+          <div class="border rounded h-100 p-2">
+            <div class="small font-weight-bold mb-2">${t('bulk_product_update_store_title')}</div>
+            <div class="form-group mb-2">
+              <label for="dash_bulk_update_store_from" class="mb-1">${t('bulk_product_update_from_store_label')}</label>
+              <select id="dash_bulk_update_store_from" class="form-control form-control-sm" data-bulk-product-update-control="1"></select>
+            </div>
+            <div class="form-group mb-2">
+              <label for="dash_bulk_update_store_to" class="mb-1">${t('bulk_product_update_to_store_label')}</label>
+              <select id="dash_bulk_update_store_to" class="form-control form-control-sm" data-bulk-product-update-control="1"></select>
+            </div>
+            <div id="dash_bulk_update_store_count" class="small text-muted mb-2"></div>
+            <button id="dash_bulk_update_store_apply" type="button" class="btn btn-primary btn-sm" data-bulk-product-update-control="1">${escapeHtml(t('bulk_product_update_apply_store_btn'))}</button>
+          </div>
+        </div>
+        <div class="col-lg-6 mb-2">
+          <div class="border rounded h-100 p-2">
+            <div class="small font-weight-bold mb-2">${t('bulk_product_update_location_title')}</div>
+            <div class="form-group mb-2">
+              <label for="dash_bulk_update_location_from" class="mb-1">${t('bulk_product_update_from_location_label')}</label>
+              <select id="dash_bulk_update_location_from" class="form-control form-control-sm" data-bulk-product-update-control="1"></select>
+            </div>
+            <div class="form-group mb-2">
+              <label for="dash_bulk_update_location_to" class="mb-1">${t('bulk_product_update_to_location_label')}</label>
+              <select id="dash_bulk_update_location_to" class="form-control form-control-sm" data-bulk-product-update-control="1"></select>
+            </div>
+            <div id="dash_bulk_update_location_count" class="small text-muted mb-2"></div>
+            <button id="dash_bulk_update_location_apply" type="button" class="btn btn-primary btn-sm" data-bulk-product-update-control="1">${escapeHtml(t('bulk_product_update_apply_location_btn'))}</button>
+          </div>
+        </div>
+      </div>
+      <div id="dash_bulk_product_update_status" class="small mt-2 text-muted"></div>
+    `;
+
+    const photoSection = document.getElementById('dash_photo_search_section');
+    if (photoSection && photoSection.parentNode) {
+      photoSection.parentNode.insertBefore(section, photoSection.nextSibling);
+    } else {
+      body.appendChild(section);
+    }
+
+    section.querySelector('#dash_bulk_product_update_refresh')?.addEventListener('click', () => {
+      fillBulkProductUpdateSection(true).catch(() => null);
+    });
+    section.querySelector('#dash_bulk_update_store_from')?.addEventListener('change', refreshBulkProductUpdateCounters);
+    section.querySelector('#dash_bulk_update_store_to')?.addEventListener('change', refreshBulkProductUpdateCounters);
+    section.querySelector('#dash_bulk_update_location_from')?.addEventListener('change', refreshBulkProductUpdateCounters);
+    section.querySelector('#dash_bulk_update_location_to')?.addEventListener('change', refreshBulkProductUpdateCounters);
+    section.querySelector('#dash_bulk_update_store_apply')?.addEventListener('click', () => {
+      runBulkProductFieldReplace('shopping_location_id').catch(() => null);
+    });
+    section.querySelector('#dash_bulk_update_location_apply')?.addEventListener('click', () => {
+      runBulkProductFieldReplace('location_id').catch(() => null);
+    });
+
+    setBulkProductUpdateStatus('', 'muted');
+    fillBulkProductUpdateSection(false).catch(() => null);
+  }
+
   function ensureFactsApiTestSection() {
     const overlay = document.getElementById('dash_ai_settings_overlay');
     if (!overlay) return;
@@ -14735,7 +15179,7 @@
         id: 'product_data',
         tabKey: 'settings_tabs_product_data',
         titleKey: 'settings_group_product_data',
-        sectionIds: ['dash_photo_search_section'],
+        sectionIds: ['dash_photo_search_section', 'dash_bulk_product_update_section'],
       },
       {
         id: 'barcodes',
@@ -14847,6 +15291,11 @@
       missingbarcodes: 'missing_barcodes',
       barcodes_missing: 'missing_barcodes',
       ignored_barcodes: 'missing_barcodes',
+      'bulk-update': 'bulk_update',
+      bulk_update: 'bulk_update',
+      bulkupdate: 'bulk_update',
+      mass_update: 'bulk_update',
+      massedit: 'bulk_update',
     };
     return aliases[raw] || '';
   }
@@ -15348,6 +15797,7 @@
     ensureFactsApiTestSection();
     ensureMissingBarcodesSettingsSection();
     ensurePhotoSearchSettingsSection();
+    ensureBulkProductUpdateSection();
     ensureAddonCompatibilitySection();
     ensureBrandLinksMigrationSettingsSection();
     ensureAddonUpdateSettingsSection();
@@ -15956,10 +16406,10 @@
     const requestedPage = requestedProductHelperPageFromUrl();
     const pageTitle = requestedPage === 'missing_barcodes'
       ? t('settings_page_missing_barcodes_title')
-      : t('ai_settings_title');
+      : (requestedPage === 'bulk_update' ? t('settings_page_bulk_update_title') : t('ai_settings_title'));
     const pageDesc = requestedPage === 'missing_barcodes'
       ? t('settings_page_missing_barcodes_desc')
-      : t('settings_group_update');
+      : (requestedPage === 'bulk_update' ? t('settings_page_bulk_update_desc') : t('settings_group_update'));
 
     pageContent.innerHTML = `
       <div class="row">
@@ -15992,6 +16442,14 @@
           missingSection.classList.remove('mt-3');
           fillMissingBarcodesSettingsSection();
           refreshMissingBarcodesSettingsSection().catch(() => null);
+        }
+      } else if (requestedPage === 'bulk_update') {
+        const body = overlay.querySelector('.card-body');
+        const bulkSection = document.getElementById('dash_bulk_product_update_section');
+        if (body && bulkSection) {
+          body.replaceChildren(bulkSection);
+          bulkSection.classList.remove('mt-3');
+          fillBulkProductUpdateSection(true).catch(() => null);
         }
       }
     }

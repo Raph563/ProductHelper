@@ -1,5 +1,10 @@
 # Changelog
 
+## [4.0.27] - 2026-03-13
+
+### Changed
+- Added a bulk product update tool to replace one shopping location with another or one stock location with another across matching product cards.
+
 ## [4.0.26] - 2026-03-13
 
 ### Changed
