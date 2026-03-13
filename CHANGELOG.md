@@ -1,5 +1,11 @@
 # Changelog
 
+## [4.0.19] - 2026-03-13
+
+### Changed
+- Missing-barcode pagination now defaults to 15 products per page.
+- Added a bottom page-size selector so the dedicated page can switch between 15, 30, and 50 products per page.
+
 ## [4.0.18] - 2026-03-13
 
 ### Changed

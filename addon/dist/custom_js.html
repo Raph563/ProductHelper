@@ -2128,6 +2128,7 @@
       pagination_prev: 'Precedent',
       pagination_next: 'Suivant',
       pagination_page: 'Page {{current}} / {{total}}',
+      pagination_per_page: 'Par page',
       settings_mode_label: 'Mode interface paramètres',
       settings_mode_basic: 'BASIC',
       settings_mode_advanced: 'ADVANCED',
@@ -2877,6 +2878,7 @@
       pagination_prev: 'Previous',
       pagination_next: 'Next',
       pagination_page: 'Page {{current}} / {{total}}',
+      pagination_per_page: 'Per page',
       settings_mode_label: 'Settings interface mode',
       settings_mode_basic: 'BASIC',
       settings_mode_advanced: 'ADVANCED',
@@ -11498,7 +11500,7 @@
     base.ignoreError = clean(base.ignoreError || '');
     base.loadedAt = Math.max(0, num(base.loadedAt) || 0);
     base.lookupRequestSeq = Math.max(0, Math.floor(num(base.lookupRequestSeq) || 0));
-    base.renderStep = Math.max(12, Math.floor(num(base.renderStep) || 24));
+    base.renderStep = Math.max(5, Math.floor(num(base.renderStep) || 15));
     base.renderLimit = Math.max(base.renderStep, Math.floor(num(base.renderLimit) || base.renderStep));
     base.currentPage = Math.max(1, Math.floor(num(base.currentPage) || 1));
     S.missingBarcodeSection = base;
@@ -12050,6 +12052,7 @@
     const pagerNote = document.getElementById('dash_missing_barcodes_pager_note');
     const pagerPrev = document.getElementById('dash_missing_barcodes_prev');
     const pagerNext = document.getElementById('dash_missing_barcodes_next');
+    const pagerSize = document.getElementById('dash_missing_barcodes_page_size');
     const ignoredWrap = document.getElementById('dash_missing_barcodes_ignored_wrap');
     const ignoredDetails = document.getElementById('dash_missing_barcodes_ignored_details');
     const ignoredSummary = document.getElementById('dash_missing_barcodes_ignored_summary');
@@ -12153,6 +12156,7 @@
       }
       if (pagerPrev) pagerPrev.disabled = state.currentPage <= 1;
       if (pagerNext) pagerNext.disabled = state.currentPage >= totalPages;
+      if (pagerSize) pagerSize.value = String(pageSize);
     }
 
     if (!ignoredWrap || !ignoredDetails || !ignoredHost || !ignoredSummary) return;
@@ -14214,6 +14218,12 @@
         <button id="dash_missing_barcodes_prev" type="button" class="btn btn-outline-secondary btn-sm mr-2 mb-1">${escapeHtml(t('pagination_prev'))}</button>
         <button id="dash_missing_barcodes_next" type="button" class="btn btn-outline-info btn-sm mr-2 mb-1">${escapeHtml(t('pagination_next'))}</button>
         <span id="dash_missing_barcodes_pager_note" class="small text-muted mb-1"></span>
+        <span class="small text-muted ml-2 mr-2 mb-1">${escapeHtml(t('pagination_per_page'))}</span>
+        <select id="dash_missing_barcodes_page_size" class="form-control form-control-sm mb-1" style="width:auto;min-width:88px;">
+          <option value="15">15</option>
+          <option value="30">30</option>
+          <option value="50">50</option>
+        </select>
       </div>
       <div id="dash_missing_barcodes_ignore_hint" class="small mt-1 text-muted d-none"></div>
       <div id="dash_missing_barcodes_ignored_wrap" class="mt-2 d-none">
@@ -14246,6 +14256,14 @@
       section.querySelector('#dash_missing_barcodes_next')?.addEventListener('click', () => {
         const state = missingBarcodeSectionState();
         state.currentPage = Math.max(1, state.currentPage + 1);
+        renderMissingBarcodesSectionList();
+      });
+      section.querySelector('#dash_missing_barcodes_page_size')?.addEventListener('change', (event) => {
+        const state = missingBarcodeSectionState();
+        const next = Math.max(5, Math.floor(num(event?.target?.value) || 15));
+        state.renderStep = next;
+        state.renderLimit = next;
+        state.currentPage = 1;
         renderMissingBarcodesSectionList();
       });
       section.querySelector('#dash_missing_barcodes_list')?.addEventListener('click', (event) => {
