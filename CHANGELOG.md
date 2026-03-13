@@ -1,5 +1,10 @@
 # Changelog
 
+## [4.0.22] - 2026-03-13
+
+### Changed
+- Fixed the missing-barcode dedicated page default so it now truly starts at 15 products per page from initial state.
+
 ## [4.0.21] - 2026-03-13
 
 ### Changed
