@@ -1,5 +1,10 @@
 # Changelog
 
+## [4.0.24] - 2026-03-13
+
+### Changed
+- Turned the `/products` missing-barcode alert into a true full banner with stronger visual presence, larger hierarchy, and supporting helper copy.
+
 ## [4.0.23] - 2026-03-13
 
 ### Changed
