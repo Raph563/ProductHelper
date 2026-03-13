@@ -7928,9 +7928,11 @@
         overflow: hidden;
         border: 1px solid rgba(255,255,255,0.18);
         border-radius: 0.78rem;
-        background: linear-gradient(150deg, rgba(255,255,255,0.05), rgba(255,255,255,0.015));
-        box-shadow: 0 8px 18px rgba(0,0,0,0.18);
-        padding: 0.72rem;
+        background:
+          radial-gradient(circle at top right, rgba(32,201,151,0.08), transparent 42%),
+          linear-gradient(155deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02));
+        box-shadow: 0 10px 24px rgba(0,0,0,0.18);
+        padding: 0.82rem;
       }
       #dash_ai_settings_overlay .dash-missing-barcodes-card::before {
         content: '';
@@ -7941,18 +7943,20 @@
       }
       #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-head {
         display: grid;
-        grid-template-columns: 86px minmax(0, 1fr) auto;
+        grid-template-columns: 92px minmax(0, 1fr) minmax(210px, 240px);
         align-items: start;
-        gap: 0.65rem;
+        gap: 0.8rem;
       }
       #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-media {
-        width: 86px;
-        height: 86px;
-        border-radius: 0.65rem;
+        width: 92px;
+        height: 92px;
+        border-radius: 0.8rem;
         overflow: hidden;
         border: 1px solid rgba(255,255,255,0.2);
         background: rgba(0,0,0,0.22);
-        box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);
+        box-shadow:
+          inset 0 0 0 1px rgba(255,255,255,0.05),
+          0 6px 14px rgba(0,0,0,0.16);
       }
       #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-media img {
         width: 100%;
@@ -7974,11 +7978,43 @@
       }
       #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-main {
         min-width: 0;
+        display: grid;
+        gap: 0.45rem;
+      }
+      #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.55rem;
+      }
+      #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.42rem;
+      }
+      #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.32rem;
+        min-height: 1.65rem;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        border: 1px solid rgba(255,255,255,0.14);
+        background: rgba(255,255,255,0.05);
+        color: rgba(226,234,243,0.92);
+        font-size: 0.72rem;
+        line-height: 1.2;
+        word-break: break-word;
+      }
+      #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-chip.is-warning {
+        border-color: rgba(255,193,7,0.28);
+        background: rgba(255,193,7,0.12);
+        color: rgba(255,229,143,0.98);
       }
       #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-name {
         font-weight: 600;
-        font-size: 0.96rem;
-        line-height: 1.28;
+        font-size: 1rem;
+        line-height: 1.32;
         word-break: break-word;
       }
       #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-sub {
@@ -7986,14 +8022,29 @@
       }
       #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-actions {
         display: grid;
-        justify-items: end;
-        gap: 0.35rem;
+        gap: 0.45rem;
+        padding: 0.68rem;
+        border-radius: 0.72rem;
+        border: 1px solid rgba(255,255,255,0.12);
+        background: rgba(0,0,0,0.16);
+        box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03);
       }
       #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-actions .input-group {
-        width: 11.5rem;
+        width: 100%;
+      }
+      #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-buttons {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.45rem;
+      }
+      #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-buttons .btn {
+        width: 100%;
       }
       #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-status {
         min-height: 1.15rem;
+        margin-top: 0.55rem;
+        padding: 0.45rem 0.55rem 0;
+        border-top: 1px dashed rgba(255,255,255,0.14);
       }
       #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-result {
         margin-top: 0.58rem;
@@ -8058,13 +8109,6 @@
         }
         #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-actions {
           grid-column: 1 / -1;
-          grid-template-columns: minmax(0, 1fr) auto;
-          align-items: center;
-          justify-items: stretch;
-        }
-        #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-actions .input-group {
-          width: 100%;
-          max-width: 16rem;
         }
       }
       @media (max-width: 575.98px) {
@@ -8077,10 +8121,9 @@
         }
         #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-actions {
           grid-template-columns: 1fr;
-          justify-items: stretch;
         }
-        #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-actions .btn {
-          width: 100%;
+        #dash_ai_settings_overlay .dash-missing-barcodes-card .dash-missing-barcodes-card-buttons {
+          grid-template-columns: 1fr;
         }
       }
       #dash_ai_settings_overlay #dash_addon_update_release_choices .btn {
@@ -12090,9 +12133,20 @@
             <div class="dash-missing-barcodes-card-head">
               <div class="dash-missing-barcodes-card-media">${pictureHtml}</div>
               <div class="dash-missing-barcodes-card-main">
-                <div class="dash-missing-barcodes-card-name">${escapeHtml(productName)}</div>
-                <div class="small text-muted dash-missing-barcodes-card-sub">${escapeHtml(t('missing_barcodes_card_product_id', { id: fmt(productId, 0) }))}</div>
-                <div class="small ${canCreate ? 'text-muted' : 'text-warning'} dash-missing-barcodes-card-sub">${escapeHtml(unitText)}</div>
+                <div class="dash-missing-barcodes-card-top">
+                  <div class="dash-missing-barcodes-card-name">${escapeHtml(productName)}</div>
+                </div>
+                <div class="dash-missing-barcodes-card-meta">
+                  <span class="dash-missing-barcodes-card-chip">
+                    <i class="fa-solid fa-hashtag"></i>
+                    <span>${escapeHtml(t('missing_barcodes_card_product_id', { id: fmt(productId, 0) }))}</span>
+                  </span>
+                  <span class="dash-missing-barcodes-card-chip ${canCreate ? '' : 'is-warning'}">
+                    <i class="fa-solid fa-scale-balanced"></i>
+                    <span>${escapeHtml(unitText)}</span>
+                  </span>
+                </div>
+                <div class="small text-muted dash-missing-barcodes-card-sub">${escapeHtml(langText('Fiche produit prête pour la recherche et validation manuelle du code-barres.', 'Product card ready for barcode lookup and manual validation.'))}</div>
               </div>
               <div class="dash-missing-barcodes-card-actions">
                 <div class="input-group input-group-sm">
@@ -12108,17 +12162,17 @@
                     data-product-id="${productId}"
                     value="${escapeHtml(String(defaultAmount))}">
                 </div>
-                <div class="d-flex flex-wrap justify-content-end">
+                <div class="dash-missing-barcodes-card-buttons">
                   <button
                     type="button"
-                    class="btn btn-outline-secondary btn-sm mr-1 mb-1"
+                    class="btn btn-outline-secondary btn-sm"
                     data-missing-barcode-search="1"
                     data-product-id="${productId}"
                     ${canCreate ? '' : 'disabled'}
                   >${escapeHtml(t('missing_barcodes_search_btn'))}</button>
                   <button
                     type="button"
-                    class="btn btn-outline-warning btn-sm mb-1"
+                    class="btn btn-outline-warning btn-sm"
                     data-missing-barcode-ignore="1"
                     data-product-id="${productId}"
                     ${ignoreAvailable ? '' : 'disabled'}
@@ -12171,8 +12225,16 @@
             <div class="dash-missing-barcodes-card-media">${pictureHtml}</div>
             <div class="dash-missing-barcodes-card-main">
               <div class="dash-missing-barcodes-card-name">${escapeHtml(productName)}</div>
-              <div class="small text-muted dash-missing-barcodes-card-sub">${escapeHtml(t('missing_barcodes_card_product_id', { id: fmt(productId, 0) }))}</div>
-              <div class="small text-warning dash-missing-barcodes-card-sub">${escapeHtml(t('missing_barcodes_card_state_ignored'))}</div>
+              <div class="dash-missing-barcodes-card-meta">
+                <span class="dash-missing-barcodes-card-chip">
+                  <i class="fa-solid fa-hashtag"></i>
+                  <span>${escapeHtml(t('missing_barcodes_card_product_id', { id: fmt(productId, 0) }))}</span>
+                </span>
+                <span class="dash-missing-barcodes-card-chip is-warning">
+                  <i class="fa-solid fa-eye-slash"></i>
+                  <span>${escapeHtml(t('missing_barcodes_card_state_ignored'))}</span>
+                </span>
+              </div>
             </div>
             <div class="dash-missing-barcodes-card-actions">
               <button

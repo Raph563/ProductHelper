@@ -1,5 +1,11 @@
 # Changelog
 
+## [4.0.12] - 2026-03-13
+
+### Changed
+- Cleaned up the ProductHelper `Products without barcodes` cards with a more structured per-product sheet layout: clearer media block, metadata chips, and a dedicated action panel.
+- Kept the existing barcode lookup / ignore / restore workflow unchanged while improving card readability on desktop and mobile.
+
 ## [4.0.11] - 2026-03-05
 
 ### Added
