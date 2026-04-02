@@ -10,7 +10,7 @@
   NERDCORE.registerAddon({
     id: 'producthelper',
     name: 'ProductHelper',
-    version: '4.0.38',
+    version: '4.0.40',
     settingsSection: 'producthelper',
     settingsTitle: 'ProductHelper',
     settingsIcon: 'fa-box-open',
@@ -3261,10 +3261,55 @@
   }
 
   function resolveUiLanguage(settingsInput) {
+    try {
+      if (NERDCORE && typeof NERDCORE.getUiLanguage === 'function') {
+        const nerdLang = clean(NERDCORE.getUiLanguage() || '').toLowerCase();
+        if (nerdLang === 'fr' || nerdLang === 'en') return nerdLang;
+      }
+    } catch (_err) {}
     const settings = normalizeAiSettings(settingsInput || S.aiSettings || defaultAiSettings());
     const mode = normalizeUiLanguageMode(settings.uiLanguageMode);
     if (mode === 'fr' || mode === 'en') return mode;
     return detectAutomaticUiLanguage();
+  }
+
+  function accentifyFrenchUiText(textInput = '') {
+    let text = String(textInput == null ? '' : textInput);
+    if (!text) return '';
+    [
+      ['Parametres', 'Paramètres'],
+      ['Reglages', 'Réglages'],
+      ['reglages', 'réglages'],
+      ['Mise a jour', 'Mise à jour'],
+      ['Francais', 'Français'],
+      ['Quantite', 'Quantité'],
+      ['Unite', 'Unité'],
+      ['Resultat', 'Résultat'],
+      ['Selectionne', 'Sélectionne'],
+      ['Reinitialiser', 'Réinitialiser'],
+      ['A valider', 'À valider'],
+      ['Memoire', 'Mémoire'],
+      ['Aucune unite', 'Aucune unité'],
+      ['par defaut', 'par défaut'],
+      ['confirmees', 'confirmées'],
+      ['importees', 'importées'],
+      ['ignorees', 'ignorées'],
+      ['scannees', 'scannées'],
+      ['detectees', 'détectées'],
+      ['echecs', 'échecs'],
+      ['succes', 'succès'],
+      ['Preparation', 'Préparation'],
+      ['verifie', 'vérifie'],
+      ['cote serveur', 'côté serveur'],
+      ['repondu', 'répondu'],
+      ['Importe', 'Importé'],
+      ['Confirme', 'Confirmé'],
+      ['Ignore', 'Ignoré'],
+      ['Elements', 'Éléments'],
+    ].forEach(([from, to]) => {
+      text = text.replaceAll(from, to);
+    });
+    return text;
   }
 
   function languageName(code, targetLang = '') {
@@ -3284,12 +3329,12 @@
         text = text.replace(new RegExp(`\\{\\{\\s*${name}\\s*\\}\\}`, 'g'), String(value));
       });
     }
-    return text;
+    return lang === 'fr' ? accentifyFrenchUiText(text) : text;
   }
 
   function langText(frText, enText, langInput = '') {
     const lang = langInput || resolveUiLanguage();
-    return lang === 'en' ? enText : frText;
+    return lang === 'en' ? enText : accentifyFrenchUiText(frText);
   }
 
   function aiProviderIds() {
@@ -4006,8 +4051,16 @@
   }
 
   const fmt = (v, d = 2) => (Number.isFinite(v) ? v : 0).toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
-  const fmtMoney = (v, d = 2) => `${fmt(v, d)} €`;
-  const currencySymbolForUi = () => (resolveUiLanguage() === 'en' ? '$' : '€');
+  const currencySymbolForUi = () => {
+    try {
+      if (NERDCORE && typeof NERDCORE.getCurrencySymbol === 'function') {
+        const symbol = clean(NERDCORE.getCurrencySymbol() || '');
+        if (symbol) return symbol;
+      }
+    } catch (_err) {}
+    return resolveUiLanguage() === 'en' ? '$' : '€';
+  };
+  const fmtMoney = (v, d = 2) => `${fmt(v, d)} ${currencySymbolForUi()}`;
   const fmtMoneyUi = (v, d = 2) => `${fmt(v, d)} ${currencySymbolForUi()}`;
   const fmtQty = (v, d = 2) => `${fmt(v, d)} ${t('unit_units')}`;
   const fmtProducts = (v, d = 0) => `${fmt(v, d)} ${t('unit_products')}`;
@@ -4051,8 +4104,8 @@
   function unitSuffixByMetricLabel(metricLabel) {
     const n = norm(metricLabel);
     if (!n) return '';
-    if (n.includes('valeur') || n.includes('value')) return ' €';
-    if (n.includes('prix') || n.includes('price')) return ' €';
+    if (n.includes('valeur') || n.includes('value')) return ` ${currencySymbolForUi()}`;
+    if (n.includes('prix') || n.includes('price')) return ` ${currencySymbolForUi()}`;
     if (n.includes('quantite') || n.includes('quantity')) return ` ${t('unit_units')}`;
     if (n.includes('produit') || n.includes('product')) return ` ${t('unit_products')}`;
     if (n.includes('calor') || n.includes('kcal')) return ' kcal';
@@ -26060,7 +26113,7 @@
       const entries = rankedMapEntries(M.byGroupValue, 10, true, false, 'g_val');
       const type = getChartPref('g_val').chartType;
       if (type === 'donut') {
-        chartDonut('g_val', entries, ' €', {
+        chartDonut('g_val', entries, ` ${currencySymbolForUi()}`, {
           compact: true,
           disableTooltip: true,
           onPointClick: openGroupFacet,
@@ -26175,7 +26228,7 @@
       const entries = bPrice.length ? bPrice : [[t('no_data'), 0]];
       const type = getChartPref('brand_price').chartType;
       if (type === 'donut') {
-        chartDonut('brand_price', entries, ' €', {
+        chartDonut('brand_price', entries, ` ${currencySymbolForUi()}`, {
           compact: true,
           disableTooltip: true,
           onPointClick: openBrandFacet,
@@ -26234,7 +26287,7 @@
       const entries = topDetailed.map((p) => [p.name, p.value]);
       const type = getChartPref('top_val').chartType;
       if (type === 'donut') {
-        chartDonut('top_val', entries, ' €', {
+        chartDonut('top_val', entries, ` ${currencySymbolForUi()}`, {
           compact: true,
           disableTooltip: true,
           onPointClick: (idx) => openProduct(topDetailed[idx] ? topDetailed[idx].id : 0),
@@ -26507,7 +26560,7 @@
       const entries = rankedMapEntries(M.byGroupValue, 10, true, forceAll, 'g_val');
       const type = getChartPref('g_val').chartType;
       cfg = type === 'donut'
-        ? donutConfig(entries, ' €', { compact: false })
+        ? donutConfig(entries, ` ${currencySymbolForUi()}`, { compact: false })
         : barConfig(entries, t('chart_label_value'), true, 2, { compact: false });
       detailHtml = formatLinesForOverlay(entries, (e) => `${e[0]}: ${fmtMoney(e[1])}`, { chartId: 'g_val', showFacetThumbs: true });
       contextData = entries;
@@ -26556,7 +26609,7 @@
       const entries = rankedBrandPrice(M, forceAll, 'brand_price');
       const type = getChartPref('brand_price').chartType;
       cfg = type === 'donut'
-        ? donutConfig(entries, ' €', { compact: false })
+        ? donutConfig(entries, ` ${currencySymbolForUi()}`, { compact: false })
         : barConfig(entries, t('chart_label_avg_price'), true, 2, { compact: false });
       detailHtml = formatLinesForOverlay(entries, (e) => `${e[0]}: ${fmtMoney(e[1])}`, { chartId: 'brand_price', showFacetThumbs: true });
       contextData = entries;
@@ -26573,7 +26626,7 @@
       const entries = topDetailed.map((p) => [p.name, p.value]);
       const type = getChartPref('top_val').chartType;
       cfg = type === 'donut'
-        ? donutConfig(entries, ' €', { compact: false })
+        ? donutConfig(entries, ` ${currencySymbolForUi()}`, { compact: false })
         : barConfig(entries, t('chart_label_value'), true, 2, { compact: false });
       detailHtml = formatLinesForOverlay(entries, (e) => `${e[0]}: ${fmtMoney(e[1])}`);
       contextData = topDetailed;
@@ -34982,7 +35035,7 @@
   }
 
   function ticketImportRememberedRelayUrl() {
-    return addonUpdateRelayUrl('v1/runtime/producthelper/receipt-memory');
+    return addonUpdateRelayUrl('v1/runtime/receipt-memory');
   }
 
   function ticketImportRememberedRelayError(payloadInput = null, fallbackInput = '') {
@@ -37842,3 +37895,5 @@
   else init();
 })();
 </script>
+
+

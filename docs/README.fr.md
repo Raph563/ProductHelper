@@ -1,6 +1,6 @@
 # ProductHelper - FR
 
-## Dependance
+## Dépendance
 
 Installer NerdCore avant ProductHelper:
 - https://github.com/Raph563/NerdCore
@@ -19,7 +19,7 @@ cd addon/scripts
 ./install.sh /path/to/grocy/config
 ```
 
-## Mise a jour
+## Mise à jour
 
 Windows:
 ```powershell
@@ -39,18 +39,18 @@ cd addon/scripts
 - `config/data/producthelper-addon-state.json`
 - `config/data/custom_js.html` (fichier actif compose)
 
-## Nouveautes 4.0.0
+## Nouveautés 4.0.0
 
-- Modele parent/sous-marque complet:
-  - entite `Liens_marques` (`Marque_parente`, `Sous_marque`, `Actif`),
-  - entree `Liens marques` dans "Gerer les donnees".
+- Modèle parent/sous-marque complet :
+  - entité `Liens_marques` (`Marque_parente`, `Sous_marque`, `Actif`),
+  - entrée `Liens marques` dans "Gérer les données".
 - Fiche produit:
-  - bouton `Robot Marque` (parse `nom - marque - quantite`),
+  - bouton `Robot Marque` (parse `nom - marque - quantité`),
   - proposition d'ajout de marque si absente,
   - auto-remplissage `Sous_marque -> Marque` via liens actifs.
-- Migration retroactive initiale:
-  - scan des produits existants pour creer marques/liens manquants,
-  - relance manuelle possible dans les parametres ProductHelper.
+- Migration rétroactive initiale :
+  - scan des produits existants pour créer marques/liens manquants,
+  - relance manuelle possible dans les paramètres ProductHelper.
 
 ## Liens
 

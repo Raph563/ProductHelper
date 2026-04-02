@@ -1,5 +1,19 @@
 # Changelog
 
+## [4.0.40] - 2026-04-02
+
+### Changed
+- Switched the remaining receipt-memory relay helper to the generic NerdCore runtime endpoint instead of the legacy ProductHelper alias.
+
+## [4.0.39] - 2026-04-02
+
+### Changed
+- Synced ProductHelper UI language and currency with NerdCore shared settings/runtime.
+- Replaced hard-coded currency symbols with the NerdCore detected currency symbol in ProductHelper UI helpers.
+
+### Fixed
+- Restored French accents on ProductHelper UI strings rendered through shared translation helpers.
+
 ## [4.0.38] - 2026-04-02
 
 ### Changed
