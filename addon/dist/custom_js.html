@@ -1867,6 +1867,30 @@
       user_data_transfer_error_no_entries: 'Backup vide: aucune donnée utilisateur StatNerd trouvée.',
       user_data_transfer_error_export: 'Erreur export backup: {{msg}}',
       user_data_transfer_error_import: 'Erreur import backup: {{msg}}',
+      settings_section_grocy_data_backup: 'Backup données Grocy',
+      grocy_data_backup_desc: 'Exporte un backup JSON des données Grocy choisies, puis réimporte-le depuis ProductHelper.',
+      grocy_data_backup_scope: 'Pour une restauration cohérente sur un autre Grocy, exporte aussi les dépendances liées: unités, groupes, emplacements et magasins.',
+      grocy_data_backup_export_btn: 'Exporter JSON',
+      grocy_data_backup_import_btn: 'Importer JSON',
+      grocy_data_backup_status_idle: 'Aucun backup Grocy importé pour cette session.',
+      grocy_data_backup_status_export_running: 'Export Grocy en cours...',
+      grocy_data_backup_status_import_running: 'Import Grocy en cours...',
+      grocy_data_backup_status_export_ok: 'Backup Grocy exporté: {{categories}} catégorie(s), {{rows}} ligne(s).',
+      grocy_data_backup_status_import_ok: 'Import Grocy terminé: {{created}} création(s), {{updated}} mise(s) à jour, {{skipped}} ignorée(s), {{failed}} erreur(s).',
+      grocy_data_backup_error_none_selected: 'Sélectionne au moins une catégorie Grocy.',
+      grocy_data_backup_error_read_file: 'Impossible de lire le fichier backup Grocy.',
+      grocy_data_backup_error_invalid_json: 'Fichier backup Grocy invalide: JSON illisible.',
+      grocy_data_backup_error_invalid_format: 'Format backup Grocy invalide.',
+      grocy_data_backup_error_empty: 'Backup Grocy vide: aucune catégorie exportée.',
+      grocy_data_backup_error_export: 'Erreur export backup Grocy: {{msg}}',
+      grocy_data_backup_error_import: 'Erreur import backup Grocy: {{msg}}',
+      grocy_data_backup_category_products: 'Produits',
+      grocy_data_backup_category_product_barcodes: 'Codes-barres produits',
+      grocy_data_backup_category_locations: 'Emplacements',
+      grocy_data_backup_category_shopping_locations: 'Magasins',
+      grocy_data_backup_category_product_groups: 'Groupes produit',
+      grocy_data_backup_category_quantity_units: 'Unités',
+      grocy_data_backup_category_quantity_unit_conversions: 'Conversions unités',
       ai_validation_mode_label: 'Mode de validation au clic sur Enregistrer',
       ai_validation_mode_single: 'Agent unique',
       ai_validation_mode_fallback: 'Chaîne fallback',
@@ -2647,6 +2671,30 @@
       user_data_transfer_error_no_entries: 'Backup is empty: no StatNerd user data found.',
       user_data_transfer_error_export: 'Backup export error: {{msg}}',
       user_data_transfer_error_import: 'Backup import error: {{msg}}',
+      settings_section_grocy_data_backup: 'Grocy data backup',
+      grocy_data_backup_desc: 'Export a JSON backup of selected Grocy data, then restore it from ProductHelper.',
+      grocy_data_backup_scope: 'For a consistent restore on another Grocy instance, also export linked dependencies: units, groups, locations, and stores.',
+      grocy_data_backup_export_btn: 'Export JSON',
+      grocy_data_backup_import_btn: 'Import JSON',
+      grocy_data_backup_status_idle: 'No Grocy backup imported during this session.',
+      grocy_data_backup_status_export_running: 'Grocy export in progress...',
+      grocy_data_backup_status_import_running: 'Grocy import in progress...',
+      grocy_data_backup_status_export_ok: 'Grocy backup exported: {{categories}} category(ies), {{rows}} row(s).',
+      grocy_data_backup_status_import_ok: 'Grocy import completed: {{created}} created, {{updated}} updated, {{skipped}} skipped, {{failed}} failed.',
+      grocy_data_backup_error_none_selected: 'Select at least one Grocy category.',
+      grocy_data_backup_error_read_file: 'Unable to read the Grocy backup file.',
+      grocy_data_backup_error_invalid_json: 'Invalid Grocy backup file: unreadable JSON.',
+      grocy_data_backup_error_invalid_format: 'Invalid Grocy backup format.',
+      grocy_data_backup_error_empty: 'Grocy backup is empty: no exported category found.',
+      grocy_data_backup_error_export: 'Grocy backup export error: {{msg}}',
+      grocy_data_backup_error_import: 'Grocy backup import error: {{msg}}',
+      grocy_data_backup_category_products: 'Products',
+      grocy_data_backup_category_product_barcodes: 'Product barcodes',
+      grocy_data_backup_category_locations: 'Locations',
+      grocy_data_backup_category_shopping_locations: 'Shopping locations',
+      grocy_data_backup_category_product_groups: 'Product groups',
+      grocy_data_backup_category_quantity_units: 'Quantity units',
+      grocy_data_backup_category_quantity_unit_conversions: 'Quantity unit conversions',
       ai_validation_mode_label: 'Validation mode when clicking Save',
       ai_validation_mode_single: 'Single agent',
       ai_validation_mode_fallback: 'Fallback chain',
@@ -15502,7 +15550,7 @@
         id: 'updates',
         tabKey: 'settings_tabs_update',
         titleKey: 'settings_group_update',
-        sectionIds: ['dash_addon_update_section', 'dash_user_data_transfer_section'],
+        sectionIds: ['dash_addon_update_section', 'dash_user_data_transfer_section', 'dash_grocy_data_backup_section'],
       },
     ];
   }
@@ -16104,6 +16152,7 @@
     ensureAddonUpdateSettingsSection();
     ensureDonneSettingsAboutInfoBlock();
     ensureUserDataTransferSection();
+    ensureGrocyDataBackupSection();
     ensureDonneSettingsLayout();
 
     document.getElementById('dash_ai_close')?.addEventListener('click', closeAiSettingsOverlay);
@@ -35667,6 +35716,463 @@
       if (RECEIPT_MATCH_STOP_WORDS.has(token)) return false;
       if (/^\d+$/.test(token)) return false;
       return source.indexOf(token) === index;
+    });
+  }
+
+  const GROCY_DATA_BACKUP_SCHEMA = 'producthelper-grocy-data-backup';
+  const GROCY_DATA_BACKUP_SCHEMA_VERSION = 1;
+
+  function grocyDataBackupDefinitions() {
+    return [
+      {
+        id: 'quantity_units',
+        labelKey: 'grocy_data_backup_category_quantity_units',
+        endpoint: 'api/objects/quantity_units',
+        naturalKey: (row) => normalizeStringValue(row && row.name),
+        fields: ['name', 'description', 'name_plural', 'plural_forms', 'active'],
+      },
+      {
+        id: 'product_groups',
+        labelKey: 'grocy_data_backup_category_product_groups',
+        endpoint: 'api/objects/product_groups',
+        naturalKey: (row) => normalizeStringValue(row && row.name),
+        fields: ['name', 'description', 'active'],
+      },
+      {
+        id: 'locations',
+        labelKey: 'grocy_data_backup_category_locations',
+        endpoint: 'api/objects/locations',
+        naturalKey: (row) => normalizeStringValue(row && row.name),
+        fields: ['name', 'description', 'is_freezer', 'active'],
+      },
+      {
+        id: 'shopping_locations',
+        labelKey: 'grocy_data_backup_category_shopping_locations',
+        endpoint: 'api/objects/shopping_locations',
+        naturalKey: (row) => normalizeStringValue(row && row.name),
+        fields: ['name', 'description', 'active'],
+      },
+      {
+        id: 'products',
+        labelKey: 'grocy_data_backup_category_products',
+        endpoint: 'api/objects/products',
+        naturalKey: (row) => normalizeStringValue(row && row.name),
+        fields: [
+          'name', 'description', 'product_group_id', 'active', 'location_id', 'shopping_location_id',
+          'qu_id_purchase', 'qu_id_stock', 'min_stock_amount', 'default_best_before_days',
+          'default_best_before_days_after_open', 'default_best_before_days_after_freezing',
+          'default_best_before_days_after_thawing', 'enable_tare_weight_handling', 'tare_weight',
+          'not_check_stock_fulfillment_for_recipes', 'parent_product_id', 'calories',
+          'cumulate_min_stock_amount_of_sub_products', 'due_type', 'quick_consume_amount',
+          'hide_on_stock_overview', 'default_stock_label_type', 'should_not_be_frozen',
+          'treat_opened_as_out_of_stock', 'no_own_stock', 'default_consume_location_id',
+          'move_on_open', 'qu_id_consume', 'auto_reprint_stock_label', 'quick_open_amount',
+          'qu_id_price', 'disable_open', 'default_purchase_price_type',
+        ],
+      },
+      {
+        id: 'product_barcodes',
+        labelKey: 'grocy_data_backup_category_product_barcodes',
+        endpoint: 'api/objects/product_barcodes',
+        naturalKey: (row) => clean(row && row.barcode),
+        fields: ['product_id', 'barcode', 'qu_id', 'amount', 'shopping_location_id', 'last_price', 'note'],
+      },
+      {
+        id: 'quantity_unit_conversions',
+        labelKey: 'grocy_data_backup_category_quantity_unit_conversions',
+        endpoint: 'api/objects/quantity_unit_conversions',
+        naturalKey: (row) => `${num(row && row.from_qu_id)}|${num(row && row.to_qu_id)}|${num(row && row.product_id)}`,
+        fields: ['from_qu_id', 'to_qu_id', 'factor', 'product_id'],
+      },
+    ];
+  }
+
+  function grocyDataBackupDefinitionMap() {
+    const out = new Map();
+    grocyDataBackupDefinitions().forEach((def) => {
+      out.set(clean(def.id || ''), def);
+    });
+    return out;
+  }
+
+  function grocyDataBackupSelectedCategoryIds() {
+    return grocyDataBackupDefinitions()
+      .map((def) => clean(def.id || ''))
+      .filter((id) => document.getElementById(`dash_grocy_data_backup_cat_${id}`)?.checked === true);
+  }
+
+  function setGrocyDataBackupStatus(text = '', level = 'muted') {
+    const node = document.getElementById('dash_grocy_data_backup_status');
+    if (!node) return;
+    node.className = `small mt-2 text-${level}`;
+    node.textContent = clean(text || '');
+  }
+
+  function grocyDataBackupPickFields(rowInput = null, fieldsInput = []) {
+    const row = rowInput && typeof rowInput === 'object' ? rowInput : {};
+    const fields = Array.isArray(fieldsInput) ? fieldsInput : [];
+    const out = {};
+    fields.forEach((field) => {
+      if (!field || !Object.prototype.hasOwnProperty.call(row, field)) return;
+      out[field] = row[field];
+    });
+    return out;
+  }
+
+  function grocyDataBackupCategoryLabel(categoryId = '') {
+    const def = grocyDataBackupDefinitionMap().get(clean(categoryId || ''));
+    if (!def) return clean(categoryId || '');
+    return t(def.labelKey || '');
+  }
+
+  async function buildGrocyDataBackupPayload(categoryIdsInput = []) {
+    const selectedIds = Array.isArray(categoryIdsInput) ? categoryIdsInput.map((id) => clean(id || '')).filter(Boolean) : [];
+    if (!selectedIds.length) {
+      throw new Error(t('grocy_data_backup_error_none_selected'));
+    }
+    const defMap = grocyDataBackupDefinitionMap();
+    const categories = [];
+    let totalRows = 0;
+
+    for (const categoryId of selectedIds) {
+      const def = defMap.get(categoryId);
+      if (!def) continue;
+      const payload = await fetchJson(def.endpoint);
+      const rows = extractArray(payload)
+        .map((row) => {
+          const entry = grocyDataBackupPickFields(row, ['id', ...(Array.isArray(def.fields) ? def.fields : [])]);
+          return entry;
+        })
+        .filter((row) => Object.keys(row).length > 0);
+      totalRows += rows.length;
+      categories.push({
+        id: categoryId,
+        label: grocyDataBackupCategoryLabel(categoryId),
+        endpoint: def.endpoint,
+        rowCount: rows.length,
+        rows,
+      });
+    }
+
+    if (!categories.length) {
+      throw new Error(t('grocy_data_backup_error_empty'));
+    }
+
+    return {
+      schema: GROCY_DATA_BACKUP_SCHEMA,
+      schemaVersion: GROCY_DATA_BACKUP_SCHEMA_VERSION,
+      createdAt: new Date().toISOString(),
+      addonVersion: clean(ADDON_RUNTIME_VERSION || ''),
+      origin: clean(window.location && window.location.origin ? window.location.origin : ''),
+      categoryCount: categories.length,
+      rowCount: totalRows,
+      categories,
+    };
+  }
+
+  function parseGrocyDataBackupPayload(rawInput = '') {
+    const raw = String(rawInput || '');
+    if (!clean(raw)) {
+      throw new Error(t('grocy_data_backup_error_invalid_json'));
+    }
+    let parsed = null;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (_err) {
+      throw new Error(t('grocy_data_backup_error_invalid_json'));
+    }
+    if (!parsed || typeof parsed !== 'object') {
+      throw new Error(t('grocy_data_backup_error_invalid_format'));
+    }
+    const categories = Array.isArray(parsed.categories) ? parsed.categories : [];
+    const normalized = categories
+      .map((category) => ({
+        id: clean(category && category.id ? category.id : ''),
+        rows: Array.isArray(category && category.rows) ? category.rows.filter((row) => row && typeof row === 'object') : [],
+      }))
+      .filter((category) => category.id && category.rows.length > 0);
+    if (!normalized.length) {
+      throw new Error(t('grocy_data_backup_error_empty'));
+    }
+    return {
+      schema: clean(parsed.schema || GROCY_DATA_BACKUP_SCHEMA),
+      schemaVersion: Math.max(1, Math.floor(num(parsed.schemaVersion || GROCY_DATA_BACKUP_SCHEMA_VERSION))),
+      categories: normalized,
+    };
+  }
+
+  function downloadGrocyDataBackupPayload(payloadInput = null) {
+    const payload = payloadInput && typeof payloadInput === 'object' ? payloadInput : null;
+    if (!payload) {
+      throw new Error(t('grocy_data_backup_error_invalid_format'));
+    }
+    const stamp = new Date().toISOString().replace(/[:]/g, '-').replace(/\..+$/, 'Z');
+    const fileName = `producthelper-grocy-backup-${stamp}.json`;
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    if (link.parentNode) link.parentNode.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  function grocyDataBackupRemapId(valueInput = 0, categoryId = '', mappingsInput = null) {
+    const rawId = num(valueInput);
+    if (!(rawId > 0)) return rawId;
+    const mappings = mappingsInput && typeof mappingsInput === 'object' ? mappingsInput : {};
+    const categoryMap = mappings[categoryId] instanceof Map ? mappings[categoryId] : null;
+    if (categoryMap && categoryMap.has(rawId)) return num(categoryMap.get(rawId));
+    return rawId;
+  }
+
+  function grocyDataBackupPrepareImportRow(categoryId = '', rowInput = null, mappingsInput = null) {
+    const def = grocyDataBackupDefinitionMap().get(clean(categoryId || ''));
+    const row = rowInput && typeof rowInput === 'object' ? rowInput : {};
+    if (!def) return {};
+    const payload = grocyDataBackupPickFields(row, Array.isArray(def.fields) ? def.fields : []);
+    if (categoryId === 'products') {
+      payload.product_group_id = grocyDataBackupRemapId(payload.product_group_id, 'product_groups', mappingsInput);
+      payload.location_id = grocyDataBackupRemapId(payload.location_id, 'locations', mappingsInput);
+      payload.shopping_location_id = grocyDataBackupRemapId(payload.shopping_location_id, 'shopping_locations', mappingsInput);
+      payload.qu_id_purchase = grocyDataBackupRemapId(payload.qu_id_purchase, 'quantity_units', mappingsInput);
+      payload.qu_id_stock = grocyDataBackupRemapId(payload.qu_id_stock, 'quantity_units', mappingsInput);
+      payload.qu_id_consume = grocyDataBackupRemapId(payload.qu_id_consume, 'quantity_units', mappingsInput);
+      payload.qu_id_price = grocyDataBackupRemapId(payload.qu_id_price, 'quantity_units', mappingsInput);
+      payload.default_consume_location_id = grocyDataBackupRemapId(payload.default_consume_location_id, 'locations', mappingsInput);
+      payload.parent_product_id = grocyDataBackupRemapId(payload.parent_product_id, 'products', mappingsInput);
+    } else if (categoryId === 'product_barcodes') {
+      payload.product_id = grocyDataBackupRemapId(payload.product_id, 'products', mappingsInput);
+      payload.qu_id = grocyDataBackupRemapId(payload.qu_id, 'quantity_units', mappingsInput);
+      payload.shopping_location_id = grocyDataBackupRemapId(payload.shopping_location_id, 'shopping_locations', mappingsInput);
+    } else if (categoryId === 'quantity_unit_conversions') {
+      payload.from_qu_id = grocyDataBackupRemapId(payload.from_qu_id, 'quantity_units', mappingsInput);
+      payload.to_qu_id = grocyDataBackupRemapId(payload.to_qu_id, 'quantity_units', mappingsInput);
+      payload.product_id = grocyDataBackupRemapId(payload.product_id, 'products', mappingsInput);
+    }
+    return payload;
+  }
+
+  async function importGrocyDataBackupPayload(payloadInput = null, selectedCategoryIdsInput = []) {
+    const payload = payloadInput && typeof payloadInput === 'object' ? payloadInput : null;
+    if (!payload || !Array.isArray(payload.categories) || !payload.categories.length) {
+      throw new Error(t('grocy_data_backup_error_invalid_format'));
+    }
+    const selectedCategoryIds = new Set((Array.isArray(selectedCategoryIdsInput) ? selectedCategoryIdsInput : []).map((id) => clean(id || '')).filter(Boolean));
+    if (!selectedCategoryIds.size) {
+      throw new Error(t('grocy_data_backup_error_none_selected'));
+    }
+
+    const definitions = grocyDataBackupDefinitions();
+    const payloadCategoryMap = new Map();
+    payload.categories.forEach((category) => {
+      const id = clean(category && category.id ? category.id : '');
+      if (!id || !Array.isArray(category.rows)) return;
+      payloadCategoryMap.set(id, category.rows);
+    });
+
+    const mappings = {
+      quantity_units: new Map(),
+      product_groups: new Map(),
+      locations: new Map(),
+      shopping_locations: new Map(),
+      products: new Map(),
+    };
+    const result = { created: 0, updated: 0, skipped: 0, failed: 0 };
+
+    for (const def of definitions) {
+      const categoryId = clean(def.id || '');
+      if (!selectedCategoryIds.has(categoryId)) continue;
+      const rows = payloadCategoryMap.get(categoryId);
+      if (!Array.isArray(rows) || !rows.length) {
+        result.skipped += 1;
+        continue;
+      }
+
+      const currentRows = extractArray(await fetchJson(def.endpoint));
+      const byNaturalKey = new Map();
+      currentRows.forEach((row) => {
+        const key = clean(def.naturalKey && typeof def.naturalKey === 'function' ? def.naturalKey(row) : '');
+        if (!key) return;
+        byNaturalKey.set(key, row);
+      });
+
+      const deferredProductParentRows = [];
+
+      for (const rawRow of rows) {
+        try {
+          const naturalKey = clean(def.naturalKey && typeof def.naturalKey === 'function' ? def.naturalKey(rawRow) : '');
+          const existing = naturalKey ? byNaturalKey.get(naturalKey) || null : null;
+          const payloadRow = grocyDataBackupPrepareImportRow(categoryId, rawRow, mappings);
+
+          if (categoryId === 'products' && num(rawRow && rawRow.parent_product_id) > 0 && !mappings.products.has(num(rawRow.parent_product_id))) {
+            deferredProductParentRows.push({ rawRow, existing, payloadRow, naturalKey });
+          }
+
+          let targetId = 0;
+          if (existing && num(existing.id) > 0) {
+            await putJson(`${def.endpoint}/${num(existing.id)}`, payloadRow);
+            result.updated += 1;
+            targetId = num(existing.id);
+          } else {
+            const created = await postJson(def.endpoint, payloadRow);
+            targetId = pickFirstNumber(created, ['id', 'object_id', 'created_object_id']);
+            if (!(targetId > 0) && naturalKey) {
+              const refreshedRows = extractArray(await fetchJson(def.endpoint));
+              const matched = refreshedRows.find((row) => clean(def.naturalKey && typeof def.naturalKey === 'function' ? def.naturalKey(row) : '') === naturalKey);
+              targetId = num(matched && matched.id);
+            }
+            result.created += 1;
+          }
+
+          const sourceId = num(rawRow && rawRow.id);
+          if (sourceId > 0 && targetId > 0 && mappings[categoryId] instanceof Map) {
+            mappings[categoryId].set(sourceId, targetId);
+          }
+        } catch (_err) {
+          result.failed += 1;
+        }
+      }
+
+      if (categoryId === 'products' && deferredProductParentRows.length) {
+        for (const deferred of deferredProductParentRows) {
+          try {
+            const sourceId = num(deferred.rawRow && deferred.rawRow.id);
+            const targetId = sourceId > 0 && mappings.products.has(sourceId) ? num(mappings.products.get(sourceId)) : num(deferred.existing && deferred.existing.id);
+            if (!(targetId > 0)) {
+              result.skipped += 1;
+              continue;
+            }
+            const payloadRow = {
+              parent_product_id: grocyDataBackupRemapId(deferred.rawRow && deferred.rawRow.parent_product_id, 'products', mappings),
+            };
+            await putJson(`${def.endpoint}/${targetId}`, payloadRow);
+            result.updated += 1;
+          } catch (_err) {
+            result.failed += 1;
+          }
+        }
+      }
+    }
+
+    return result;
+  }
+
+  async function runGrocyDataBackupExport() {
+    const button = document.getElementById('dash_grocy_data_backup_export');
+    if (button) setButtonBusy(button, true);
+    try {
+      const selectedIds = grocyDataBackupSelectedCategoryIds();
+      setGrocyDataBackupStatus(t('grocy_data_backup_status_export_running'), 'info');
+      const payload = await buildGrocyDataBackupPayload(selectedIds);
+      downloadGrocyDataBackupPayload(payload);
+      setGrocyDataBackupStatus(t('grocy_data_backup_status_export_ok', {
+        categories: fmt(num(payload.categoryCount), 0),
+        rows: fmt(num(payload.rowCount), 0),
+      }), 'success');
+      return payload;
+    } catch (error) {
+      const msg = clean(error && error.message ? error.message : String(error)) || t('focus_unknown_error');
+      setGrocyDataBackupStatus(t('grocy_data_backup_error_export', { msg }), 'danger');
+      return null;
+    } finally {
+      if (button) setButtonBusy(button, false);
+    }
+  }
+
+  async function runGrocyDataBackupImportFromFile(fileInput = null) {
+    const file = fileInput && typeof fileInput === 'object' ? fileInput : null;
+    if (!file) {
+      setGrocyDataBackupStatus(t('grocy_data_backup_error_read_file'), 'warning');
+      return null;
+    }
+    const button = document.getElementById('dash_grocy_data_backup_import');
+    if (button) setButtonBusy(button, true);
+    try {
+      setGrocyDataBackupStatus(t('grocy_data_backup_status_import_running'), 'info');
+      const fileText = await new Promise((resolve, reject) => {
+        try {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result || ''));
+          reader.onerror = () => reject(new Error(t('grocy_data_backup_error_read_file')));
+          reader.readAsText(file);
+        } catch (_err) {
+          reject(new Error(t('grocy_data_backup_error_read_file')));
+        }
+      });
+      const payload = parseGrocyDataBackupPayload(fileText);
+      const result = await importGrocyDataBackupPayload(payload, grocyDataBackupSelectedCategoryIds());
+      setGrocyDataBackupStatus(t('grocy_data_backup_status_import_ok', {
+        created: fmt(num(result.created), 0),
+        updated: fmt(num(result.updated), 0),
+        skipped: fmt(num(result.skipped), 0),
+        failed: fmt(num(result.failed), 0),
+      }), result.failed > 0 ? 'warning' : 'success');
+      return result;
+    } catch (error) {
+      const msg = clean(error && error.message ? error.message : String(error)) || t('focus_unknown_error');
+      setGrocyDataBackupStatus(t('grocy_data_backup_error_import', { msg }), 'danger');
+      return null;
+    } finally {
+      if (button) setButtonBusy(button, false);
+    }
+  }
+
+  function ensureGrocyDataBackupSection() {
+    const overlay = document.getElementById('dash_ai_settings_overlay');
+    if (!overlay) return;
+    if (document.getElementById('dash_grocy_data_backup_section')) return;
+
+    const body = overlay.querySelector('.card-body');
+    if (!body) return;
+
+    const section = document.createElement('div');
+    section.id = 'dash_grocy_data_backup_section';
+    section.className = 'dash-settings-section p-2 mt-3';
+    const checkboxHtml = grocyDataBackupDefinitions().map((def) => `
+      <label class="custom-control custom-checkbox mr-3 mb-2">
+        <input id="dash_grocy_data_backup_cat_${escapeHtml(def.id)}" type="checkbox" class="custom-control-input" checked>
+        <span class="custom-control-label">${escapeHtml(t(def.labelKey || ''))}</span>
+      </label>
+    `).join('');
+    section.innerHTML = `
+      <div class="small font-weight-bold mb-2">${t('settings_section_grocy_data_backup')}</div>
+      <div class="small text-muted mb-1">${t('grocy_data_backup_desc')}</div>
+      <div class="small text-muted mb-2">${t('grocy_data_backup_scope')}</div>
+      <div class="d-flex flex-wrap align-items-center mb-2">
+        ${checkboxHtml}
+      </div>
+      <div class="d-flex flex-wrap align-items-center">
+        <button id="dash_grocy_data_backup_export" type="button" class="btn btn-outline-info btn-sm mr-2 mb-1">${t('grocy_data_backup_export_btn')}</button>
+        <button id="dash_grocy_data_backup_import" type="button" class="btn btn-outline-secondary btn-sm mb-1">${t('grocy_data_backup_import_btn')}</button>
+        <input id="dash_grocy_data_backup_import_file" type="file" accept=".json,application/json" class="d-none">
+      </div>
+      <div id="dash_grocy_data_backup_status" class="small mt-2 text-muted">${t('grocy_data_backup_status_idle')}</div>
+    `;
+
+    const transferSection = document.getElementById('dash_user_data_transfer_section');
+    if (transferSection && transferSection.parentNode) {
+      transferSection.parentNode.insertBefore(section, transferSection.nextSibling);
+    } else {
+      body.appendChild(section);
+    }
+
+    section.querySelector('#dash_grocy_data_backup_export')?.addEventListener('click', async () => {
+      await runGrocyDataBackupExport();
+    });
+    section.querySelector('#dash_grocy_data_backup_import')?.addEventListener('click', () => {
+      const input = section.querySelector('#dash_grocy_data_backup_import_file');
+      if (!input) return;
+      try { input.value = ''; } catch (_err) {}
+      input.click();
+    });
+    section.querySelector('#dash_grocy_data_backup_import_file')?.addEventListener('change', async (event) => {
+      const input = event && event.target ? event.target : null;
+      const file = input && input.files && input.files.length > 0 ? input.files[0] : null;
+      await runGrocyDataBackupImportFromFile(file);
+      try { if (input) input.value = ''; } catch (_err) {}
     });
   }
 
