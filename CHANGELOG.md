@@ -1,5 +1,11 @@
 # Changelog
 
+## [4.0.38] - 2026-04-02
+
+### Changed
+- Removed the active receipt OCR scanner from ProductHelper runtime on `/purchase`.
+- Receipt scanning is now provided by the dedicated `ReceiptScanner` addon so ProductHelper goes back to product-focused features only.
+
 ## [4.0.37] - 2026-04-02
 
 ### Added
