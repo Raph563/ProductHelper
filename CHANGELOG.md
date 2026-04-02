@@ -1,5 +1,15 @@
 # Changelog
 
+## [4.0.37] - 2026-04-02
+
+### Added
+- Added a receipt-import workflow on `/purchase` with image/PDF upload, OCR parsing, receipt-line review, Grocy product suggestions, and batch purchase import into Grocy.
+- Added server-side receipt memory so confirmed ticket labels are remembered across sessions and can come back as direct 100% confidence matches.
+
+### Changed
+- Moved the receipt-import card to the right side of the purchase page and opened scan results in a dedicated pop-up review window instead of rendering the review inline.
+- Improved receipt parsing for dematerialized PDF tickets, low-confidence candidate ordering, `2X...` quantity detection, and dynamic French/English ticket UI translation based on the NerdCore language setting.
+
 ## [4.0.35] - 2026-03-13
 
 ### Changed
