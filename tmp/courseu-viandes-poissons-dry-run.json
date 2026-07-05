@@ -1,0 +1,362 @@
+{
+  "schemaVersion": 1,
+  "mode": "dry-run",
+  "categoryUrl": "https://www.coursesu.com/c/viandes-poissons",
+  "generatedAt": "2026-06-25T23:49:36.086Z",
+  "source": "Course U",
+  "secretPolicy": "Only product candidates and public source URLs are stored in this ledger.",
+  "summary": {
+    "total": 5,
+    "created": 0,
+    "duplicate": 0,
+    "skipped": 0,
+    "review": 0,
+    "errors": 5
+  },
+  "items": [
+    {
+      "id": "5319347",
+      "source": "courseu",
+      "sourceUrl": "https://www.coursesu.com/p/filet-de-poulet-blanc-france/5319347.html",
+      "courseUId": "5319347",
+      "status": "error",
+      "duplicate": null,
+      "confidence": 0,
+      "productId": 0,
+      "reasons": [
+        "courseu_page_blocked"
+      ],
+      "productPayload": {
+        "name": "U Filet de poulet blanc, France, 870 g environ",
+        "description": "Source : Course U https://www.coursesu.com/p/filet-de-poulet-blanc-france/5319347.html\nErreur : Course U product page blocked during dry-run.",
+        "product_group_id": 0,
+        "qu_id_stock": 0,
+        "qu_id_purchase": 0,
+        "location_id": 0,
+        "shopping_location_id": 0,
+        "calories": 0,
+        "active": 1
+      },
+      "userfields": {
+        "Marque": "",
+        "Sous_marque": "",
+        "origine": "",
+        "parent": "0"
+      },
+      "conversions": [],
+      "sourceProduct": {
+        "source": "courseu",
+        "url": "https://www.coursesu.com/p/filet-de-poulet-blanc-france/5319347.html",
+        "courseUId": "5319347",
+        "name": "U Filet de poulet blanc, France, 870 g environ",
+        "blocked": true,
+        "error": "Course U product page blocked during dry-run.",
+        "visiblePrice": null
+      },
+      "error": "Course U product page blocked during dry-run.",
+      "createdAt": "",
+      "updatedAt": "2026-06-25T23:49:36.086Z"
+    },
+    {
+      "id": "3850226",
+      "source": "courseu",
+      "sourceUrl": "https://www.coursesu.com/p/steak-hache-5-matiere-grasse--france-vbf-2-pieces-----250g/3850226.html",
+      "courseUId": "3850226",
+      "status": "error",
+      "duplicate": null,
+      "confidence": 0,
+      "productId": 0,
+      "reasons": [
+        "courseu_page_blocked"
+      ],
+      "productPayload": {
+        "name": "U Steak haché, 5% Matière Grasse, France, VBF, 2 pièces - 250g",
+        "description": "Source : Course U https://www.coursesu.com/p/steak-hache-5-matiere-grasse--france-vbf-2-pieces-----250g/3850226.html\nErreur : Course U product page blocked during dry-run.",
+        "product_group_id": 0,
+        "qu_id_stock": 0,
+        "qu_id_purchase": 0,
+        "location_id": 0,
+        "shopping_location_id": 0,
+        "calories": 0,
+        "active": 1
+      },
+      "userfields": {
+        "Marque": "",
+        "Sous_marque": "",
+        "origine": "",
+        "parent": "0"
+      },
+      "conversions": [],
+      "sourceProduct": {
+        "source": "courseu",
+        "url": "https://www.coursesu.com/p/steak-hache-5-matiere-grasse--france-vbf-2-pieces-----250g/3850226.html",
+        "courseUId": "3850226",
+        "name": "U Steak haché, 5% Matière Grasse, France, VBF, 2 pièces - 250g",
+        "blocked": true,
+        "error": "Course U product page blocked during dry-run.",
+        "visiblePrice": null
+      },
+      "error": "Course U product page blocked during dry-run.",
+      "createdAt": "",
+      "updatedAt": "2026-06-25T23:49:36.086Z"
+    },
+    {
+      "id": "7267465",
+      "source": "courseu",
+      "sourceUrl": "https://www.coursesu.com/p/saucisse-de-toulouse-sans-colorant--france-4-pieces-barquette-500g/7267465.html",
+      "courseUId": "7267465",
+      "status": "error",
+      "duplicate": null,
+      "confidence": 0,
+      "productId": 0,
+      "reasons": [
+        "courseu_page_blocked"
+      ],
+      "productPayload": {
+        "name": "U Saucisse de Toulouse sans colorant, France, 4 pièces, barquette, 500g",
+        "description": "Source : Course U https://www.coursesu.com/p/saucisse-de-toulouse-sans-colorant--france-4-pieces-barquette-500g/7267465.html\nErreur : Course U product page blocked during dry-run.",
+        "product_group_id": 0,
+        "qu_id_stock": 0,
+        "qu_id_purchase": 0,
+        "location_id": 0,
+        "shopping_location_id": 0,
+        "calories": 0,
+        "active": 1
+      },
+      "userfields": {
+        "Marque": "",
+        "Sous_marque": "",
+        "origine": "",
+        "parent": "0"
+      },
+      "conversions": [],
+      "sourceProduct": {
+        "source": "courseu",
+        "url": "https://www.coursesu.com/p/saucisse-de-toulouse-sans-colorant--france-4-pieces-barquette-500g/7267465.html",
+        "courseUId": "7267465",
+        "name": "U Saucisse de Toulouse sans colorant, France, 4 pièces, barquette, 500g",
+        "blocked": true,
+        "error": "Course U product page blocked during dry-run.",
+        "visiblePrice": null
+      },
+      "error": "Course U product page blocked during dry-run.",
+      "createdAt": "",
+      "updatedAt": "2026-06-25T23:49:36.086Z"
+    },
+    {
+      "id": "1438167",
+      "source": "courseu",
+      "sourceUrl": "https://www.coursesu.com/p/escalope-de-dinde--france-2-pieces/1438167.html",
+      "courseUId": "1438167",
+      "status": "error",
+      "duplicate": null,
+      "confidence": 0,
+      "productId": 0,
+      "reasons": [
+        "courseu_page_blocked"
+      ],
+      "productPayload": {
+        "name": "U Escalope de dinde, France, 2 pièces 240 g environ",
+        "description": "Source : Course U https://www.coursesu.com/p/escalope-de-dinde--france-2-pieces/1438167.html\nErreur : Course U product page blocked during dry-run.",
+        "product_group_id": 0,
+        "qu_id_stock": 0,
+        "qu_id_purchase": 0,
+        "location_id": 0,
+        "shopping_location_id": 0,
+        "calories": 0,
+        "active": 1
+      },
+      "userfields": {
+        "Marque": "",
+        "Sous_marque": "",
+        "origine": "",
+        "parent": "0"
+      },
+      "conversions": [],
+      "sourceProduct": {
+        "source": "courseu",
+        "url": "https://www.coursesu.com/p/escalope-de-dinde--france-2-pieces/1438167.html",
+        "courseUId": "1438167",
+        "name": "U Escalope de dinde, France, 2 pièces 240 g environ",
+        "blocked": true,
+        "error": "Course U product page blocked during dry-run.",
+        "visiblePrice": null
+      },
+      "error": "Course U product page blocked during dry-run.",
+      "createdAt": "",
+      "updatedAt": "2026-06-25T23:49:36.086Z"
+    },
+    {
+      "id": "3213021",
+      "source": "courseu",
+      "sourceUrl": "https://www.coursesu.com/p/filet-de-limande-du-nord-meuniere-transformee-en-france-200g/3213021.html",
+      "courseUId": "3213021",
+      "status": "error",
+      "duplicate": null,
+      "confidence": 0,
+      "productId": 0,
+      "reasons": [
+        "courseu_page_blocked"
+      ],
+      "productPayload": {
+        "name": "U Filet de limande du Nord meunière transformée en France, 200g",
+        "description": "Source : Course U https://www.coursesu.com/p/filet-de-limande-du-nord-meuniere-transformee-en-france-200g/3213021.html\nErreur : Course U product page blocked during dry-run.",
+        "product_group_id": 0,
+        "qu_id_stock": 0,
+        "qu_id_purchase": 0,
+        "location_id": 0,
+        "shopping_location_id": 0,
+        "calories": 0,
+        "active": 1
+      },
+      "userfields": {
+        "Marque": "",
+        "Sous_marque": "",
+        "origine": "",
+        "parent": "0"
+      },
+      "conversions": [],
+      "sourceProduct": {
+        "source": "courseu",
+        "url": "https://www.coursesu.com/p/filet-de-limande-du-nord-meuniere-transformee-en-france-200g/3213021.html",
+        "courseUId": "3213021",
+        "name": "U Filet de limande du Nord meunière transformée en France, 200g",
+        "blocked": true,
+        "error": "Course U product page blocked during dry-run.",
+        "visiblePrice": null
+      },
+      "error": "Course U product page blocked during dry-run.",
+      "createdAt": "",
+      "updatedAt": "2026-06-25T23:49:36.086Z"
+    }
+  ],
+  "category": {
+    "title": "Viandes, poissons",
+    "url": "https://www.coursesu.com/c/viandes-poissons",
+    "subcategories": [
+      {
+        "label": "Tout pour le Barbecue",
+        "url": "https://www.coursesu.com/c/viandes-poissons/tout-pour-le-barbecue"
+      },
+      {
+        "label": "Boucherie",
+        "url": "https://www.coursesu.com/c/viandes-poissons/boucherie"
+      },
+      {
+        "label": "Volaille",
+        "url": "https://www.coursesu.com/c/viandes-poissons/volaille"
+      },
+      {
+        "label": "Poissonnerie",
+        "url": "https://www.coursesu.com/c/viandes-poissons/poissonnerie"
+      },
+      {
+        "label": "Traiteur de la mer",
+        "url": "https://www.coursesu.com/c/viandes-poissons/traiteur-de-la-mer"
+      }
+    ],
+    "products": [
+      {
+        "label": "U Filet de poulet blanc, France, 870 g environ",
+        "url": "https://www.coursesu.com/p/filet-de-poulet-blanc-france/5319347.html",
+        "courseUId": "5319347"
+      },
+      {
+        "label": "U Steak haché, 5% Matière Grasse, France, VBF, 2 pièces - 250g",
+        "url": "https://www.coursesu.com/p/steak-hache-5-matiere-grasse--france-vbf-2-pieces-----250g/3850226.html",
+        "courseUId": "3850226"
+      },
+      {
+        "label": "U Saucisse de Toulouse sans colorant, France, 4 pièces, barquette, 500g",
+        "url": "https://www.coursesu.com/p/saucisse-de-toulouse-sans-colorant--france-4-pieces-barquette-500g/7267465.html",
+        "courseUId": "7267465"
+      },
+      {
+        "label": "U Escalope de dinde, France, 2 pièces 240 g environ",
+        "url": "https://www.coursesu.com/p/escalope-de-dinde--france-2-pieces/1438167.html",
+        "courseUId": "1438167"
+      },
+      {
+        "label": "U Filet de limande du Nord meunière transformée en France, 200g",
+        "url": "https://www.coursesu.com/p/filet-de-limande-du-nord-meuniere-transformee-en-france-200g/3213021.html",
+        "courseUId": "3213021"
+      },
+      {
+        "label": "U Cordon bleu de poulet, France, 4 pièces, barquette, 400g",
+        "url": "https://www.coursesu.com/p/cordon-bleu-de-poulet--france-4-pieces-barquette-400g/5702312.html",
+        "courseUId": "5702312"
+      },
+      {
+        "label": "Filet de poulet blanc, PRIX MINI, France, barquette 1kg",
+        "url": "https://www.coursesu.com/p/filet-de-poulet-blanc-prix-mini-france-barquette-1kg/5046393.html",
+        "courseUId": "5046393"
+      },
+      {
+        "label": "Emincé filet de poulet roti nature, LE GAULOIS, France, barquette, 180g",
+        "url": "https://www.coursesu.com/p/emince-filet-de-poulet-roti-nature-le-gaulois-france-barquette-180g/5510040.html",
+        "courseUId": "5510040"
+      },
+      {
+        "label": "Terrine Bretonne aux Saint Jacques GUYADER, x2 soit 120g",
+        "url": "https://www.coursesu.com/p/terrine-bretonne-aux-saint-jacques-guyader-x2-soit-120g/141674.html",
+        "courseUId": "141674"
+      },
+      {
+        "label": "Terrine de saumon fumé GUYADER, 2 tranches, 120g",
+        "url": "https://www.coursesu.com/p/terrine-de-saumon-fume-guyader-2-tranches-120g/141739.html",
+        "courseUId": "141739"
+      },
+      {
+        "label": "Cordon bleu de poulet 3 fromages, LE GAULOIS, 2 pièces, 200g",
+        "url": "https://www.coursesu.com/p/cordon-bleu-de-poulet-3-fromages-le-gaulois-2-pieces-200g/4872479.html",
+        "courseUId": "4872479"
+      },
+      {
+        "label": "Emincé filet de poulet roti mexicain, LE GAULOIS, barquette, 180g",
+        "url": "https://www.coursesu.com/p/emince-filet-de-poulet-roti-mexicain-le-gaulois-barquette-180g/5509581.html",
+        "courseUId": "5509581"
+      },
+      {
+        "label": "Avantage Carte U pour un retrait jusqu'au 05/07 U Truite fumée au bois de hêtre, 4 tranches - 120g U Truite fumée au bois de hêtre, 4 tranches - 120g",
+        "url": "https://www.coursesu.com/p/truite-fumee-au-bois-de-hetre--4-tranches-----120g/3585622.html",
+        "courseUId": "3585622"
+      },
+      {
+        "label": "U Bâtonnets de préparation à base de chair de poisson saveur crabe - x30- 500g",
+        "url": "https://www.coursesu.com/p/batonnets-de-preparation-a-base-de-chair-de-poisson-saveur-crabe---x30--500g/2307546.html",
+        "courseUId": "2307546"
+      },
+      {
+        "label": "U Mayonnaise allégée en matières grasses à la moutarde de Dijon pot de455g",
+        "url": "https://www.coursesu.com/p/mayonnaise-allegee-en-matieres-grasses-a-la-moutarde-de-dijon--pot-de455g/6518397.html",
+        "courseUId": "6518397"
+      },
+      {
+        "label": "U Viande hachée pur boeuf, 5% Matière Grasse, VBF, 100% muscle, France,350g",
+        "url": "https://www.coursesu.com/p/viande-hachee-pur-boeuf-5-matiere-grasse--vbf-100-muscle-france350g/1482256.html",
+        "courseUId": "1482256"
+      },
+      {
+        "label": "Pané de poulet, LE GAULOIS, 2 pièces, barquette, 200g",
+        "url": "https://www.coursesu.com/p/pane-de-poulet-le-gaulois-2-pieces-barquette-200g/3822907.html",
+        "courseUId": "3822907"
+      },
+      {
+        "label": "ICI PRIX MINI Crevettes cuites calibre 60/80 PRIX MINI - barquette 500g Crevettes cuites calibre 60/80 PRIX MINI - barquette 500g",
+        "url": "https://www.coursesu.com/p/crevettes-cuites-calibre-60-80-prix-mini---barquette-500g/3222888.html",
+        "courseUId": "3222888"
+      },
+      {
+        "label": "Filet de poulet rôti, LE GAULOIS, France, 2 pièces 240 g environ",
+        "url": "https://www.coursesu.com/p/filet-de-poulet-roti-le-gaulois-france-2-pieces/3594750.html",
+        "courseUId": "3594750"
+      },
+      {
+        "label": "U Grignotte de poulet rôtie nature Bleu Blanc Coeur - Sachet 250g",
+        "url": "https://www.coursesu.com/p/grignotte-de-poulet-rotie-nature-bleu-blanc-coeur---sachet-250g/1142579.html",
+        "courseUId": "1142579"
+      }
+    ]
+  },
+  "note": "Dry-run generated without writing to Grocy."
+}

@@ -1,5 +1,22 @@
 # Changelog
 
+## [4.0.42] - 2026-06-26
+
+### Added
+- Added a ProductHelper admin page for Course U dry-run imports under `/stocksettings?producthelper=1&producthelperPage=courseu_import`.
+- Added a private NerdCore-backed Course U import ledger reader/updater so candidates can be reviewed before any Grocy product is created.
+- Added the offline Course U parser/mapping test suite and dry-run CLI for the `viandes-poissons` category.
+
+### Notes
+- The first production dry-run is intentionally non-creatable because Course U blocks automated product-detail pages in Playwright; ProductHelper shows those candidates as `error` until a non-blocked source path is available.
+
+## [4.0.41] - 2026-04-02
+
+### Changed
+- Reworked the ProductHelper settings page into a clearer inline hub with quick actions, stricter `BASIC` grouping, and advanced sections isolated behind the full view.
+- Moved photo search and bulk tooling out of the main daily settings flow so barcode and OFF/OPF work stay easier to reach.
+- Synced the ProductHelper receipt review pop-up with the new single-line navigator used by ReceiptScanner so both addons now present the same review workflow on `/purchase`.
+
 ## [4.0.40] - 2026-04-02
 
 ### Changed

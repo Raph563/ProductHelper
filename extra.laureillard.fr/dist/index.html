@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pulse Forge - Rythme sonore a niveaux</title>
+  <meta name="description" content="Rythme sonore avec niveaux, volume et compte a rebours avant changement de cadence.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=Chivo:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body data-moment="steady">
+  <div id="pagePulseFrame" class="page-pulse-frame" aria-hidden="true"></div>
+  <div id="coachBurst" class="coach-burst" aria-hidden="true">
+    <div class="coach-burst-backdrop"></div>
+    <p id="coachBurstMeta" class="coach-burst-meta"></p>
+    <p id="coachBurstText" class="coach-burst-text"></p>
+  </div>
+
+  <main class="shell">
+    <header class="hero reveal delay-1">
+      <p class="eyebrow">extra.laureillard.fr</p>
+      <h1>Pulse Forge</h1>
+      <p class="subtitle">Rythme sonore progressif, compte a rebours avant changement de cadence et pulsation plein ecran.</p>
+    </header>
+
+    <section class="control-card reveal delay-2" aria-label="Parametres de session">
+      <h2>Session</h2>
+
+      <label for="levelSelect">Niveau</label>
+      <select id="levelSelect"></select>
+
+      <div class="duration-row">
+        <label for="durationRange">Duree</label>
+        <output id="durationValue" for="durationRange">8 min</output>
+      </div>
+      <input id="durationRange" type="range" min="3" max="20" step="1" value="8">
+
+      <div class="duration-row">
+        <label for="volumeRange">Volume</label>
+        <output id="volumeValue" for="volumeRange">68%</output>
+      </div>
+      <input id="volumeRange" type="range" min="0" max="100" step="1" value="68">
+      <div class="volume-gauge" aria-hidden="true">
+        <span id="volumeGaugeFill" class="volume-gauge-fill"></span>
+      </div>
+
+      <p id="levelHint" class="hint">Base 72 BPM. Le compte a rebours apparait avant chaque changement.</p>
+
+      <div class="button-row">
+        <button id="startBtn" class="btn accent" type="button">Demarrer</button>
+        <button id="pauseBtn" class="btn" type="button" disabled>Pause</button>
+        <button id="resetBtn" class="btn ghost" type="button">Reinitialiser</button>
+      </div>
+    </section>
+
+    <section class="monitor-card reveal delay-3" aria-live="polite">
+      <div class="topline">
+        <p id="statusText">Pret</p>
+        <p id="timerText">00:00 / 08:00</p>
+      </div>
+
+      <p id="momentBadge" class="moment steady">Cadence stable</p>
+      <p class="bpm-line"><span id="currentBpm">72</span> BPM</p>
+
+      <div class="progress-track" aria-hidden="true">
+        <div id="progressBar" class="progress-fill"></div>
+      </div>
+
+      <div id="segmentRail" class="segment-rail" aria-hidden="true"></div>
+
+      <section class="coach-card">
+        <p class="coach-eyebrow">Compte a rebours</p>
+        <p id="coachText" class="coach-text">Le compte a rebours s'affiche dans les 3 dernieres secondes avant le changement.</p>
+      </section>
+
+      <h3>Prochains moments</h3>
+      <ul id="upcomingList" class="upcoming-list"></ul>
+    </section>
+
+    <section class="pulse-card reveal delay-4" aria-hidden="true">
+      <div class="pulse-stage">
+        <div id="pulseAura" class="pulse-aura"></div>
+        <div id="pulseNode" class="pulse-node"></div>
+      </div>
+      <p>Le coeur visuel pulse maintenant jusque sur les rebords de la page.</p>
+    </section>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>
